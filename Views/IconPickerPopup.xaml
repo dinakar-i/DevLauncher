@@ -1,0 +1,52 @@
+<UserControl x:Class="DevLauncher.Views.IconPickerPopup"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Background="{StaticResource SurfaceBrush}"
+            BorderBrush="{StaticResource AccentBrush}"
+            BorderThickness="1" CornerRadius="10"
+            MinWidth="340" MaxWidth="380">
+        <Border.Effect>
+            <DropShadowEffect Color="#000000" BlurRadius="24" ShadowDepth="6" Opacity="0.5"/>
+        </Border.Effect>
+        <StackPanel>
+            <!-- Header -->
+            <Border Padding="14,12" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Pick an Icon"
+                               FontFamily="Segoe UI" FontWeight="Bold" FontSize="13"
+                               Foreground="{StaticResource TextBrush}" VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" Content="✕"
+                            FontSize="11" Padding="6,3"
+                            Style="{StaticResource DangerButton}"
+                            Click="Close_Click"/>
+                </Grid>
+            </Border>
+
+            <!-- Search -->
+            <Border Padding="12,10,12,8">
+                <TextBox x:Name="SearchBox"
+                         Text=""
+                         Height="36" FontSize="12" Padding="10,0"
+                         VerticalContentAlignment="Center"
+                         Foreground="{StaticResource TextBrush}"
+                         TextChanged="Search_TextChanged"/>
+            </Border>
+
+            <!-- Category tabs -->
+            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled"
+                          Margin="12,0,12,8">
+                <StackPanel x:Name="CategoryTabs" Orientation="Horizontal"/>
+            </ScrollViewer>
+
+            <!-- Icon grid -->
+            <ScrollViewer Height="220" VerticalScrollBarVisibility="Auto" Margin="8,0,8,12">
+                <WrapPanel x:Name="IconGrid" Margin="4"/>
+            </ScrollViewer>
+        </StackPanel>
+    </Border>
+</UserControl>
