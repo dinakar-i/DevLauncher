@@ -1,0 +1,48 @@
+# ─── Build output ───────────────────────────────────────────────
+bin/
+obj/
+
+# ─── Visual Studio ───────────────────────────────────────────────
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# ─── Rider / JetBrains ──────────────────────────────────────────
+.idea/
+*.sln.iml
+
+# ─── VS Code ────────────────────────────────────────────────────
+.vscode/
+
+# ─── NuGet ──────────────────────────────────────────────────────
+packages/
+*.nupkg
+*.snupkg
+project.lock.json
+project.nuget.cache
+.nuget/
+nuget.config
+
+# ─── Publish output ─────────────────────────────────────────────
+publish/
+**/publish/
+*.msix
+*.appx
+*.appxbundle
+
+# ─── App user data (runtime generated) ──────────────────────────
+AppData/
+*.log
+*.tmp
+
+# ─── OS ─────────────────────────────────────────────────────────
+Thumbs.db
+Desktop.ini
+.DS_Store
+ehthumbs.db
+
+# ─── Temp bat files DevLauncher writes to %TEMP% ────────────────
+*.bat.tmp
