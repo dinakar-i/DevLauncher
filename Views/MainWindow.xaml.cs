@@ -88,6 +88,16 @@ public partial class MainWindow : Window
 
     private void ScrollTerminalToBottom() => TerminalScroll.ScrollToBottom();
 
+    // ─── Directory Browser ────────────────────────────────────────
+
+    // Called from the Browse button in the Custom preset builder
+    private void BrowseNewPresetDir_Click(object sender, RoutedEventArgs e)
+    {
+        var path = MainViewModel.BrowseFolder(_vm.NewPresetWorkingDir);
+        if (path != null)
+            _vm.NewPresetWorkingDir = path;
+    }
+
     // ─── Icon Picker ───────────────────────────────────────────────
     private void IconPickerBtn_Click(object sender, RoutedEventArgs e)
     {

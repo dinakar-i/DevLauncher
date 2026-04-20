@@ -137,6 +137,19 @@ public partial class MainViewModel : ObservableObject
     // ─── Preset management ────────────────────────────────────────
 
     [RelayCommand]
+    private void BrowseWorkingDir(LaunchPreset? preset)
+    {
+        if (preset == null) return;
+        var path = BrowseFolder(preset.WorkingDirectory);
+        if (path != null)
+        {
+            preset.WorkingDirectory = path;
+            _storage.SaveCustomPresets(AllPresets);
+            StatusText = $"Directory set: {path}";
+        }
+    }
+
+    [RelayCommand]
     private void CopyScript(LaunchPreset? preset)
     {
         if (preset == null) return;
@@ -238,7 +251,7 @@ public partial class MainViewModel : ObservableObject
 
     private void LoadPresets()
     {
-       // foreach (var p in _storage.GetBuiltInPresets()) AllPresets.Add(p);
+        foreach (var p in _storage.GetBuiltInPresets()) AllPresets.Add(p);
         foreach (var p in _storage.LoadCustomPresets())  AllPresets.Add(p);
         ApplyFilter();
     }
@@ -261,6 +274,26 @@ public partial class MainViewModel : ObservableObject
         NewPresetName = string.Empty; NewPresetIcon = "⚡"; NewPresetCategory = "Dev";
         NewPresetDescription = string.Empty; NewPresetWorkingDir = string.Empty;
         NewPresetOpenUrl = string.Empty; NewPresetCommands.Clear();
+    }
+
+    // ─── Folder browser ───────────────────────────────────────────
+    /// <summary>Opens native Windows folder picker, returns selected path or null.</summary>
+    public static string? BrowseFolder(string? initialDir = null)
+    {
+        using var dlg = new System.Windows.Forms.FolderBrowserDialog
+        {
+            Description         = "Select working directory for this preset",
+            UseDescriptionForTitle = true,
+            ShowNewFolderButton = true,
+        };
+
+        if (!string.IsNullOrWhiteSpace(initialDir) &&
+            System.IO.Directory.Exists(initialDir))
+            dlg.InitialDirectory = initialDir;
+
+        return dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK
+            ? dlg.SelectedPath
+            : null;
     }
 
     private static string GenerateBatScript(LaunchPreset p)
