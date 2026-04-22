@@ -1,10 +1,22 @@
+// Explicit WPF aliases — required because UseWindowsForms=true causes
+// System.Drawing and System.Windows.Forms to conflict with WPF types.
+using WpfApp        = System.Windows.Application;
+using WpfBrush      = System.Windows.Media.Brush;
+using WpfBrushes    = System.Windows.Media.Brushes;
+using WpfColor      = System.Windows.Media.Color;
+using WpfSolidBrush = System.Windows.Media.SolidColorBrush;
+using WpfFontFamily = System.Windows.Media.FontFamily;
+using WpfCursors    = System.Windows.Input.Cursors;
+using WpfFontWeight = System.Windows.FontWeights;
+using WpfUserControl = System.Windows.Controls.UserControl;
+
 using System.Windows;
-using System.Windows.Input;
-using System.Windows.Media;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 
 namespace DevLauncher.Views;
 
-public partial class IconPickerPopup : UserControl
+public partial class IconPickerPopup : WpfUserControl
 {
     public event Action<string>? IconSelected;
 
@@ -56,9 +68,8 @@ public partial class IconPickerPopup : UserControl
         },
     };
 
-    // Brushes cached for hover
-    private readonly SolidColorBrush _normalBg  = new(Color.FromRgb(24, 28, 36));
-    private readonly SolidColorBrush _hoverBg   = new(Color.FromRgb(30, 36, 50));
+    private readonly WpfSolidBrush _normalBg = new(WpfColor.FromRgb(24, 28, 36));
+    private readonly WpfSolidBrush _hoverBg  = new(WpfColor.FromRgb(30, 36, 50));
 
     public IconPickerPopup()
     {
@@ -79,25 +90,26 @@ public partial class IconPickerPopup : UserControl
                 CornerRadius    = new CornerRadius(6),
                 Padding         = new Thickness(12, 6, 12, 6),
                 Margin          = new Thickness(0, 0, 4, 0),
-                Cursor          = Cursors.Hand,
+                Cursor          = WpfCursors.Hand,
                 Background      = active
-                    ? (Brush)Application.Current.FindResource("AccentGradient")
-                    : new SolidColorBrush(Color.FromRgb(24, 28, 36)),
+                    ? (WpfBrush)WpfApp.Current.FindResource("AccentGradient")
+                    : new WpfSolidBrush(WpfColor.FromRgb(24, 28, 36)),
                 BorderBrush     = active
-                    ? Brushes.Transparent
-                    : (Brush)Application.Current.FindResource("BorderBrush"),
+                    ? WpfBrushes.Transparent
+                    : (WpfBrush)WpfApp.Current.FindResource("BorderBrush"),
                 BorderThickness = new Thickness(1),
                 Tag             = cat,
             };
 
             border.Child = new TextBlock
             {
-                Text           = cat,
-                FontFamily     = new FontFamily("Consolas"),
-                FontSize       = 10,
-                FontWeight     = FontWeights.SemiBold,
-                Foreground     = active ? Brushes.White
-                    : (Brush)Application.Current.FindResource("Muted2Brush"),
+                Text             = cat,
+                FontFamily       = new WpfFontFamily("Consolas"),
+                FontSize         = 10,
+                FontWeight       = FontWeights.SemiBold,
+                Foreground       = active
+                    ? WpfBrushes.White
+                    : (WpfBrush)WpfApp.Current.FindResource("Muted2Brush"),
                 IsHitTestVisible = false,
             };
 
@@ -140,11 +152,11 @@ public partial class IconPickerPopup : UserControl
             return;
         }
 
-        // Search all categories
         var seen = new HashSet<string>();
         foreach (var icons in Icons.Values)
             foreach (var icon in icons)
-                if (!seen.Contains(icon)) { seen.Add(icon); IconGrid.Children.Add(CreateIconCell(icon)); }
+                if (seen.Add(icon))
+                    IconGrid.Children.Add(CreateIconCell(icon));
     }
 
     private UIElement CreateIconCell(string icon)
@@ -156,34 +168,34 @@ public partial class IconPickerPopup : UserControl
             CornerRadius    = new CornerRadius(8),
             Margin          = new Thickness(2),
             Background      = _normalBg,
-            BorderBrush     = (Brush)Application.Current.FindResource("BorderBrush"),
+            BorderBrush     = (WpfBrush)WpfApp.Current.FindResource("BorderBrush"),
             BorderThickness = new Thickness(1),
-            Cursor          = Cursors.Hand,
+            Cursor          = WpfCursors.Hand,
             ToolTip         = icon,
             Child = new TextBlock
             {
                 Text                = icon,
                 FontSize            = 20,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment   = VerticalAlignment.Center,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                VerticalAlignment   = System.Windows.VerticalAlignment.Center,
                 IsHitTestVisible    = false,
             }
         };
 
         border.MouseEnter += (_, _) =>
         {
-            border.Background   = _hoverBg;
-            border.BorderBrush  = (Brush)Application.Current.FindResource("AccentBrush");
+            border.Background  = _hoverBg;
+            border.BorderBrush = (WpfBrush)WpfApp.Current.FindResource("AccentBrush");
         };
         border.MouseLeave += (_, _) =>
         {
-            border.Background   = _normalBg;
-            border.BorderBrush  = (Brush)Application.Current.FindResource("BorderBrush");
+            border.Background  = _normalBg;
+            border.BorderBrush = (WpfBrush)WpfApp.Current.FindResource("BorderBrush");
         };
         border.MouseLeftButtonDown += (_, _) =>
         {
             IconSelected?.Invoke(icon);
-            if (Parent is System.Windows.Controls.Primitives.Popup p)
+            if (Parent is Popup p)
                 p.IsOpen = false;
         };
 
@@ -192,7 +204,7 @@ public partial class IconPickerPopup : UserControl
 
     private void Close_Click(object sender, RoutedEventArgs e)
     {
-        if (Parent is System.Windows.Controls.Primitives.Popup popup)
+        if (Parent is Popup popup)
             popup.IsOpen = false;
     }
 }

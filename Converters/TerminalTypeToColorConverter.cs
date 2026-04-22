@@ -1,6 +1,11 @@
 using System.Globalization;
 using System.Windows.Data;
-using System.Windows.Media;
+
+// Explicit aliases to avoid System.Drawing ambiguity (UseWindowsForms=true)
+using WpfColor   = System.Windows.Media.Color;
+using WpfBrush   = System.Windows.Media.Brush;
+using WpfBrushes = System.Windows.Media.Brushes;
+using WpfSolidBrush = System.Windows.Media.SolidColorBrush;
 using DevLauncher.Models;
 
 namespace DevLauncher.Converters;
@@ -11,14 +16,14 @@ public class TerminalTypeToColorConverter : IValueConverter
     {
         return value is TerminalLineType t ? t switch
         {
-            TerminalLineType.Command   => new SolidColorBrush(Color.FromRgb(0,   229, 255)),  // cyan
-            TerminalLineType.Success   => new SolidColorBrush(Color.FromRgb(16,  185, 129)),  // green
-            TerminalLineType.Error     => new SolidColorBrush(Color.FromRgb(239, 68,  68)),   // red
-            TerminalLineType.Warning   => new SolidColorBrush(Color.FromRgb(245, 158, 11)),   // amber
-            TerminalLineType.Info      => new SolidColorBrush(Color.FromRgb(113, 128, 150)),  // muted
-            TerminalLineType.Separator => new SolidColorBrush(Color.FromRgb(30,  35,  48)),   // border
-            _                          => new SolidColorBrush(Color.FromRgb(226, 232, 240)),  // text
-        } : Brushes.White;
+            TerminalLineType.Command   => new WpfSolidBrush(WpfColor.FromRgb(0,   229, 255)),
+            TerminalLineType.Success   => new WpfSolidBrush(WpfColor.FromRgb(16,  185, 129)),
+            TerminalLineType.Error     => new WpfSolidBrush(WpfColor.FromRgb(239, 68,  68)),
+            TerminalLineType.Warning   => new WpfSolidBrush(WpfColor.FromRgb(245, 158, 11)),
+            TerminalLineType.Info      => new WpfSolidBrush(WpfColor.FromRgb(113, 128, 150)),
+            TerminalLineType.Separator => new WpfSolidBrush(WpfColor.FromRgb(30,  35,  48)),
+            _                          => new WpfSolidBrush(WpfColor.FromRgb(226, 232, 240)),
+        } : WpfBrushes.White;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

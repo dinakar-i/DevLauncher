@@ -16,7 +16,7 @@ public class PresetStorageService
     {
         try
         {
-            if (!File.Exists(PresetsFile))  SaveCustomPresets(GetBuiltInPresets());
+            if (!File.Exists(PresetsFile)) return new();
             var json = File.ReadAllText(PresetsFile);
             return JsonConvert.DeserializeObject<List<LaunchPreset>>(json) ?? new();
         }
@@ -49,7 +49,6 @@ public class PresetStorageService
                     new() { Command = "npm run dev",          Description = "Starting Vite dev server", RunInBackground = true },
                     new() { Command = "npm run server",       Description = "Starting API server",      RunInBackground = true },
                 },
-                IsCustom=true,
                 OpenUrlAfterLaunch = "http://localhost:3000"
             },
             new()
@@ -63,7 +62,6 @@ public class PresetStorageService
                     new() { Command = "python manage.py migrate",        Description = "Running migrations" },
                     new() { Command = "python manage.py runserver",      Description = "Starting server", RunInBackground = true },
                 },
-                IsCustom=true,
                 OpenUrlAfterLaunch = "http://127.0.0.1:8000"
             },
             new()
@@ -76,8 +74,7 @@ public class PresetStorageService
                     new() { Command = "docker-compose pull",      Description = "Pulling latest images" },
                     new() { Command = "docker-compose up -d",     Description = "Starting services" },
                     new() { Command = "docker-compose logs -f",   Description = "Tailing logs", RunInBackground = true },
-                },
-                IsCustom=true,
+                }
             },
             new()
             {
@@ -89,8 +86,7 @@ public class PresetStorageService
                     new() { Command = "minikube start",           Description = "Starting cluster" },
                     new() { Command = "kubectl apply -f ./k8s/",  Description = "Applying manifests" },
                     new() { Command = "kubectl get pods -w",      Description = "Watching pods", RunInBackground = true },
-                },
-                IsCustom=true,
+                }
             },
             new()
             {
@@ -103,8 +99,7 @@ public class PresetStorageService
                     new() { Command = "npx vite",                         Description = "Starting Vite", RunInBackground = true },
                     new() { Command = "npx storybook dev -p 6006",        Description = "Starting Storybook", RunInBackground = true },
                 },
-                OpenUrlAfterLaunch = "http://localhost:5173",
-                IsCustom=true
+                OpenUrlAfterLaunch = "http://localhost:5173"
             },
             new()
             {
@@ -116,8 +111,7 @@ public class PresetStorageService
                     new() { Command = "jupyter lab",      Description = "Starting JupyterLab", RunInBackground = true },
                     new() { Command = "mlflow ui",        Description = "Starting MLflow UI",  RunInBackground = true },
                 },
-                OpenUrlAfterLaunch = "http://localhost:8888/lab",
-                IsCustom=true
+                OpenUrlAfterLaunch = "http://localhost:8888/lab"
             },
             new()
             {
@@ -130,8 +124,7 @@ public class PresetStorageService
                     new() { Command = "npm test -- --coverage",   Description = "Running tests" },
                     new() { Command = "npm run build",            Description = "Building for production" },
                     new() { Command = "git push origin staging",  Description = "Pushing to staging" },
-                },
-                IsCustom=true
+                }
             },
             new()
             {
@@ -142,8 +135,7 @@ public class PresetStorageService
                 {
                     new() { Command = "redis-server --daemonize yes",     Description = "Starting Redis" },
                     new() { Command = "npx prisma migrate dev",           Description = "Running Prisma migrations" },
-                },
-                IsCustom=true,
+                }
             },
         };
     }

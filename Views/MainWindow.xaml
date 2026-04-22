@@ -343,6 +343,31 @@
                                                        FontFamily="Consolas" FontSize="11" FontWeight="SemiBold"
                                                        Foreground="{StaticResource Muted2Brush}"/>
                                         </Border>
+                                        <Border x:Name="TabTeamHeader" CornerRadius="6" Padding="16,7"
+                                                Cursor="Hand" MouseLeftButtonDown="Tab_Team_Click">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="Transparent"/>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Ellipse Width="7" Height="7" Margin="0,0,6,0">
+                                                    <Ellipse.Style>
+                                                        <Style TargetType="Ellipse">
+                                                            <Setter Property="Fill" Value="{StaticResource MutedBrush}"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsWorkspaceJoined}" Value="True">
+                                                                    <Setter Property="Fill" Value="{StaticResource Accent3Brush}"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Ellipse.Style>
+                                                </Ellipse>
+                                                <TextBlock x:Name="TabTeamText" Text="Team"
+                                                           FontFamily="Consolas" FontSize="11" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Muted2Brush}"/>
+                                            </StackPanel>
+                                        </Border>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -535,6 +560,424 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <!-- TEAM WORKSPACE panel -->
+                            <ScrollViewer x:Name="TeamPanel" Visibility="Collapsed"
+                                          VerticalScrollBarVisibility="Auto" Padding="28"
+                                          Background="{StaticResource BgBrush}">
+                                <StackPanel HorizontalAlignment="Stretch">
+                                    <TextBlock Text="Team Workspace"
+                                               FontFamily="Segoe UI" FontWeight="ExtraBold" FontSize="20"
+                                               Foreground="{StaticResource TextBrush}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="Share and sync presets with your team in real-time via Firebase"
+                                               FontFamily="Consolas" FontSize="10"
+                                               Foreground="{StaticResource Muted2Brush}" Margin="0,0,0,24"/>
+
+                                    <!-- Connection status card -->
+                                    <Border Background="{StaticResource SurfaceBrush}"
+                                            BorderBrush="{StaticResource BorderBrush}"
+                                            BorderThickness="1" CornerRadius="10"
+                                            Padding="18" Margin="0,0,0,20">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                                    <Ellipse Width="8" Height="8" Margin="0,0,8,0">
+                                                        <Ellipse.Style>
+                                                            <Style TargetType="Ellipse">
+                                                                <Setter Property="Fill" Value="{StaticResource DangerBrush}"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsWorkspaceJoined}" Value="True">
+                                                                        <Setter Property="Fill" Value="{StaticResource Accent3Brush}"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding IsConnecting}" Value="True">
+                                                                        <Setter Property="Fill" Value="{StaticResource WarnBrush}"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Ellipse.Style>
+                                                    </Ellipse>
+                                                    <TextBlock Text="{Binding WorkspaceStatus}"
+                                                               FontFamily="Consolas" FontSize="11"
+                                                               Foreground="{StaticResource TextBrush}"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock FontFamily="Consolas" FontSize="10"
+                                                               Foreground="{StaticResource Muted2Brush}"
+                                                               Text="Workspace: "/>
+                                                    <TextBlock FontFamily="Consolas" FontSize="10"
+                                                               Foreground="{StaticResource AccentBrush}"
+                                                               Text="{Binding WorkspaceCode}"/>
+                                                    <TextBlock FontFamily="Consolas" FontSize="10"
+                                                               Foreground="{StaticResource Muted2Brush}"
+                                                               Text="  |  Synced: "/>
+                                                    <TextBlock FontFamily="Consolas" FontSize="10"
+                                                               Foreground="{StaticResource Accent3Brush}"
+                                                               Text="{Binding TeamPresets.Count}"/>
+                                                    <TextBlock FontFamily="Consolas" FontSize="10"
+                                                               Foreground="{StaticResource Muted2Brush}"
+                                                               Text=" presets"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <Button Grid.Column="1"
+                                                    Style="{StaticResource DangerButton}"
+                                                    Content="Disconnect" Padding="14,8"
+                                                    Visibility="{Binding IsWorkspaceJoined, Converter={StaticResource BoolVis}}"
+                                                    Command="{Binding DisconnectWorkspaceCommand}"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Create / Join workspace form (shown when not joined) -->
+                                    <Border Background="{StaticResource SurfaceBrush}"
+                                            BorderBrush="{StaticResource BorderBrush}"
+                                            BorderThickness="1" CornerRadius="10"
+                                            Padding="18" Margin="0,0,0,20"
+                                            Visibility="{Binding IsWorkspaceJoined, Converter={StaticResource BoolVis}, ConverterParameter=invert}">
+                                        <StackPanel>
+
+                                            <!-- Mode switcher tabs: Create / Join -->
+                                            <Border Background="{StaticResource Surface2Brush}"
+                                                    BorderBrush="{StaticResource BorderBrush}"
+                                                    BorderThickness="1" CornerRadius="8"
+                                                    Padding="4" Margin="0,0,0,20" HorizontalAlignment="Left">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <!-- Create tab -->
+                                                    <Border x:Name="WsCreateTab" CornerRadius="6" Padding="20,7"
+                                                            Cursor="Hand" MouseLeftButtonDown="WsTab_Create_Click">
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                                <GradientStop Color="#7C3AED" Offset="0"/>
+                                                                <GradientStop Color="#00E5FF" Offset="1"/>
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <TextBlock x:Name="WsCreateTabText" Text="✦  Create Workspace"
+                                                                   FontFamily="Consolas" FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="White"/>
+                                                    </Border>
+                                                    <!-- Join tab -->
+                                                    <Border x:Name="WsJoinTab" CornerRadius="6" Padding="20,7"
+                                                            Background="Transparent"
+                                                            Cursor="Hand" MouseLeftButtonDown="WsTab_Join_Click">
+                                                        <TextBlock x:Name="WsJoinTabText" Text="🔗  Join Workspace"
+                                                                   FontFamily="Consolas" FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource Muted2Brush}"/>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!-- ══ CREATE PANEL ══ -->
+                                            <StackPanel x:Name="WsCreatePanel">
+                                                <TextBlock FontFamily="Consolas" FontSize="10"
+                                                           Foreground="{StaticResource Muted2Brush}"
+                                                           Margin="0,0,0,16" TextWrapping="Wrap"
+                                                           Text="Create a new workspace for your team. Share the code with teammates so they can join and sync presets in real-time."/>
+
+                                                <!-- Name + Code row -->
+                                                <Grid Margin="0,0,0,12">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="12"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0">
+                                                        <TextBlock Text="WORKSPACE NAME" FontFamily="Consolas" FontSize="9"
+                                                                   FontWeight="SemiBold" Foreground="{StaticResource Muted2Brush}" Margin="0,0,0,6"/>
+                                                        <TextBox Text="{Binding NewWorkspaceName, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Height="40" FontSize="12" Padding="10,0"
+                                                                 VerticalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="2">
+                                                        <TextBlock Text="WORKSPACE CODE" FontFamily="Consolas" FontSize="9"
+                                                                   FontWeight="SemiBold" Foreground="{StaticResource Muted2Brush}" Margin="0,0,0,6"/>
+                                                        <TextBox Text="{Binding WorkspaceCode, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Height="40" FontSize="14" Padding="10,0"
+                                                                 VerticalContentAlignment="Center"
+                                                                 Foreground="{StaticResource AccentBrush}"/>
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <!-- Display name -->
+                                                <StackPanel Margin="0,0,0,16">
+                                                    <TextBlock Text="YOUR DISPLAY NAME" FontFamily="Consolas" FontSize="9"
+                                                               FontWeight="SemiBold" Foreground="{StaticResource Muted2Brush}" Margin="0,0,0,6"/>
+                                                    <TextBox Text="{Binding UserDisplayName, UpdateSourceTrigger=PropertyChanged}"
+                                                             Height="40" FontSize="12" Padding="10,0"
+                                                             VerticalContentAlignment="Center"/>
+                                                </StackPanel>
+
+                                                <!-- Tip box -->
+                                                <Border Background="#0D7C3AED" BorderBrush="#337C3AED"
+                                                        BorderThickness="1" CornerRadius="7" Padding="12,10" Margin="0,0,0,16">
+                                                    <TextBlock FontFamily="Consolas" FontSize="10"
+                                                               Foreground="#AA7C3AED" TextWrapping="Wrap">
+                                                        <Run Text="💡 Tip: "/>
+                                                        <Run Text="The workspace code is what you share with teammates. Use something memorable like "/>
+                                                        <Run Text="ACME-DEV" Foreground="{StaticResource AccentBrush}"/>
+                                                        <Run Text=" or "/>
+                                                        <Run Text="MYTEAM-2024" Foreground="{StaticResource AccentBrush}"/>
+                                                        <Run Text=". It is case-insensitive."/>
+                                                    </TextBlock>
+                                                </Border>
+
+                                                <Button Height="42" FontSize="13"
+                                                        Command="{Binding CreateWorkspaceCommand}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                                                            <Setter Property="Content" Value="✦   Create Workspace"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsConnecting}" Value="True">
+                                                                    <Setter Property="IsEnabled" Value="False"/>
+                                                                    <Setter Property="Content" Value="⏳  Creating..."/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                            </StackPanel>
+
+                                            <!-- ══ JOIN PANEL ══ -->
+                                            <StackPanel x:Name="WsJoinPanel" Visibility="Collapsed">
+                                                <TextBlock FontFamily="Consolas" FontSize="10"
+                                                           Foreground="{StaticResource Muted2Brush}"
+                                                           Margin="0,0,0,16" TextWrapping="Wrap"
+                                                           Text="Enter the workspace code your team lead shared with you to join and sync presets in real-time."/>
+
+                                                <Grid Margin="0,0,0,12">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="12"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0">
+                                                        <TextBlock Text="WORKSPACE CODE" FontFamily="Consolas" FontSize="9"
+                                                                   FontWeight="SemiBold" Foreground="{StaticResource Muted2Brush}" Margin="0,0,0,6"/>
+                                                        <TextBox Text="{Binding WorkspaceCode, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Height="40" FontSize="14" Padding="10,0"
+                                                                 VerticalContentAlignment="Center"
+                                                                 Foreground="{StaticResource AccentBrush}"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="2">
+                                                        <TextBlock Text="YOUR DISPLAY NAME" FontFamily="Consolas" FontSize="9"
+                                                                   FontWeight="SemiBold" Foreground="{StaticResource Muted2Brush}" Margin="0,0,0,6"/>
+                                                        <TextBox Text="{Binding UserDisplayName, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Height="40" FontSize="12" Padding="10,0"
+                                                                 VerticalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <Button Height="42" FontSize="13"
+                                                        Command="{Binding ConnectWorkspaceCommand}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                                                            <Setter Property="Content" Value="🔗   Join Workspace"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsConnecting}" Value="True">
+                                                                    <Setter Property="IsEnabled" Value="False"/>
+                                                                    <Setter Property="Content" Value="⏳  Joining..."/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+
+                                                <TextBlock Text="No account needed — just enter the code your team lead shared."
+                                                           FontFamily="Consolas" FontSize="10"
+                                                           Foreground="{StaticResource MutedBrush}"
+                                                           HorizontalAlignment="Center" Margin="0,10,0,0"/>
+                                            </StackPanel>
+
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Team presets list (shown when joined) -->
+                                    <Border Visibility="{Binding IsWorkspaceJoined, Converter={StaticResource BoolVis}}">
+                                        <StackPanel>
+                                            <TextBlock Text="TEAM PRESETS" FontFamily="Consolas" FontSize="9"
+                                                       FontWeight="SemiBold" Foreground="{StaticResource Muted2Brush}"
+                                                       Margin="0,0,0,12"/>
+
+                                            <TextBlock Text="No team presets yet. Share a local preset to get started."
+                                                       FontFamily="Consolas" FontSize="11"
+                                                       Foreground="{StaticResource MutedBrush}"
+                                                       Margin="0,8,0,0">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding TeamPresets.Count}" Value="0">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+
+                                            <ItemsControl ItemsSource="{Binding TeamPresets}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type models:LaunchPreset}">
+                                                        <Border Width="285" Margin="0,0,10,10"
+                                                                Background="{StaticResource SurfaceBrush}"
+                                                                BorderThickness="1" CornerRadius="10"
+                                                                Padding="14">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="BorderBrush" Value="{StaticResource Accent3Brush}"/>
+                                                                    <Style.Triggers>
+                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                                                        </Trigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <StackPanel>
+                                                                <!-- Header -->
+                                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                                                    <Border Width="34" Height="34"
+                                                                            Background="{StaticResource Surface2Brush}"
+                                                                            BorderBrush="{StaticResource BorderBrush}"
+                                                                            BorderThickness="1" CornerRadius="7"
+                                                                            Margin="0,0,8,0">
+                                                                        <TextBlock Text="{Binding Icon}" FontSize="17"
+                                                                                   HorizontalAlignment="Center"
+                                                                                   VerticalAlignment="Center"/>
+                                                                    </Border>
+                                                                    <StackPanel VerticalAlignment="Center">
+                                                                        <TextBlock Text="{Binding Name}"
+                                                                                   FontFamily="Segoe UI" FontWeight="Bold"
+                                                                                   FontSize="12" Foreground="{StaticResource TextBrush}"/>
+                                                                        <TextBlock FontFamily="Consolas" FontSize="9"
+                                                                                   Foreground="{StaticResource Muted2Brush}">
+                                                                            <Run Text="by "/>
+                                                                            <Run Text="{Binding LastEditedBy}" Foreground="{StaticResource AccentBrush}"/>
+                                                                        </TextBlock>
+                                                                    </StackPanel>
+                                                                </StackPanel>
+
+                                                                <TextBlock Text="{Binding Description}"
+                                                                           FontFamily="Consolas" FontSize="10"
+                                                                           Foreground="{StaticResource Muted2Brush}"
+                                                                           TextWrapping="Wrap" Margin="0,0,0,8"
+                                                                           MaxHeight="32" TextTrimming="CharacterEllipsis"/>
+
+                                                                <!-- Commands preview -->
+                                                                <ItemsControl ItemsSource="{Binding Commands}" Margin="0,0,0,10">
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Border Background="{StaticResource BgBrush}"
+                                                                                    BorderBrush="{StaticResource BorderBrush}"
+                                                                                    BorderThickness="1" CornerRadius="5"
+                                                                                    Padding="7,3" Margin="0,2">
+                                                                                <StackPanel Orientation="Horizontal">
+                                                                                    <TextBlock Text="$ " Foreground="{StaticResource AccentBrush}"
+                                                                                               FontFamily="Consolas" FontSize="10"/>
+                                                                                    <TextBlock Text="{Binding Command}"
+                                                                                               Foreground="{StaticResource Accent3Brush}"
+                                                                                               FontFamily="Consolas" FontSize="10"
+                                                                                               TextTrimming="CharacterEllipsis"/>
+                                                                                </StackPanel>
+                                                                            </Border>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+
+                                                                <!-- Actions -->
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="6"/>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                        <ColumnDefinition Width="6"/>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <Button Grid.Column="0" Content="▶  Launch"
+                                                                            Style="{StaticResource PrimaryButton}" FontSize="11"
+                                                                            Command="{Binding DataContext.LaunchPresetCommand,
+                                                                                      RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding}"/>
+                                                                    <Button Grid.Column="2" Content="⬇ Pull"
+                                                                            Style="{StaticResource OutlineButton}"
+                                                                            ToolTip="Save as local preset" Padding="10,7"
+                                                                            Command="{Binding DataContext.PullTeamPresetCommand,
+                                                                                      RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding}"/>
+                                                                    <Button Grid.Column="4" Content="✕"
+                                                                            Style="{StaticResource DangerButton}"
+                                                                            Padding="8,7"
+                                                                            ToolTip="Delete from workspace"
+                                                                            Command="{Binding DataContext.DeleteTeamPresetCommand,
+                                                                                      RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding}"/>
+                                                                </Grid>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Share local preset section -->
+                                    <Border Margin="0,16,0,0"
+                                            Background="{StaticResource SurfaceBrush}"
+                                            BorderBrush="{StaticResource BorderBrush}"
+                                            BorderThickness="1" CornerRadius="10" Padding="18"
+                                            Visibility="{Binding IsWorkspaceJoined, Converter={StaticResource BoolVis}}">
+                                        <StackPanel>
+                                            <TextBlock Text="SHARE A LOCAL PRESET" FontFamily="Consolas" FontSize="9"
+                                                       FontWeight="SemiBold" Foreground="{StaticResource Muted2Brush}"
+                                                       Margin="0,0,0,12"/>
+                                            <TextBlock Text="Pick any of your local presets below and push it to the team workspace."
+                                                       FontFamily="Consolas" FontSize="10"
+                                                       Foreground="{StaticResource Muted2Brush}" Margin="0,0,0,12"/>
+                                            <ItemsControl ItemsSource="{Binding AllPresets}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type models:LaunchPreset}">
+                                                        <Border Background="{StaticResource BgBrush}"
+                                                                BorderBrush="{StaticResource BorderBrush}"
+                                                                BorderThickness="1" CornerRadius="7"
+                                                                Padding="10,8" Margin="0,3">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Grid.Column="0" Text="{Binding Icon}"
+                                                                           FontSize="16" Margin="0,0,10,0"
+                                                                           VerticalAlignment="Center"/>
+                                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                    <TextBlock Text="{Binding Name}"
+                                                                               FontFamily="Consolas" FontSize="11"
+                                                                               FontWeight="SemiBold"
+                                                                               Foreground="{StaticResource TextBrush}"/>
+                                                                    <TextBlock Text="{Binding Category}"
+                                                                               FontFamily="Consolas" FontSize="9"
+                                                                               Foreground="{StaticResource Muted2Brush}"/>
+                                                                </StackPanel>
+                                                                <Button Grid.Column="2" Content="⬆ Share"
+                                                                        Style="{StaticResource GreenButton}"
+                                                                        Padding="12,6" FontSize="10"
+                                                                        Command="{Binding DataContext.SharePresetCommand,
+                                                                                  RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}"/>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                             </ScrollViewer>
 

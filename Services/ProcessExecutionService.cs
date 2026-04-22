@@ -1,3 +1,4 @@
+using WinForms = System.Windows.Forms;
 using System.Diagnostics;
 using System.IO;
 using DevLauncher.Models;
@@ -19,10 +20,10 @@ public class ProcessExecutionService
         void Emit(string text, TerminalLineType type)
         {
             var line = new TerminalLine { Text = text, Type = type };
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            // Always dispatch to UI thread — ObservableCollection requires it
+            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
             {
                 session.Lines.Add(line);
-                // Keep last 2000 lines per session
                 while (session.Lines.Count > 2000)
                     session.Lines.RemoveAt(0);
                 onSessionUpdated();

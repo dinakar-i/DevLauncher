@@ -1,31 +1,56 @@
 using System.Collections.ObjectModel;
-using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DevLauncher.Models;
 using DevLauncher.Services;
 
+// Explicit aliases — UseWindowsForms=true causes System.Windows.Forms to
+// conflict with System.Windows types across the entire project.
+using WpfMessageBox       = System.Windows.MessageBox;
+using WpfMessageBoxButton = System.Windows.MessageBoxButton;
+using WpfMessageBoxImage  = System.Windows.MessageBoxImage;
+using WpfMessageBoxResult = System.Windows.MessageBoxResult;
+using WpfClipboard        = System.Windows.Clipboard;
+using WpfApplication      = System.Windows.Application;
+using WinForms            = System.Windows.Forms;
+
 namespace DevLauncher.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
-    private readonly ProcessExecutionService _executor = new();
-    private readonly PresetStorageService    _storage  = new();
+    // ── Services ──────────────────────────────────────────────────
+    private readonly ProcessExecutionService  _executor        = new();
+    private readonly PresetStorageService     _storage         = new();
+    private readonly FirebaseService          _firebase        = new();
+    private readonly WorkspaceStorageService  _wsStorage       = new();
 
-    // Each active launch gets its own session tab
+    // ── Collections ───────────────────────────────────────────────
     public ObservableCollection<TerminalSession> Sessions        { get; } = new();
     public ObservableCollection<LaunchPreset>    AllPresets      { get; } = new();
     public ObservableCollection<LaunchPreset>    FilteredPresets { get; } = new();
+    public ObservableCollection<LaunchPreset>    TeamPresets     { get; } = new();
 
+    // ── General state ─────────────────────────────────────────────
     [ObservableProperty] private TerminalSession? _activeSession;
-    [ObservableProperty] private LaunchPreset?    _selectedPreset;
-    [ObservableProperty] private string           _searchText    = string.Empty;
-    [ObservableProperty] private string           _activeFilter  = "All";
-    [ObservableProperty] private string           _statusText    = "Ready — launch a preset to begin.";
-    [ObservableProperty] private string           _currentTime   = DateTime.Now.ToString("HH:mm:ss");
-    [ObservableProperty] private bool             _hasNoSessions = true;
+    [ObservableProperty] private string  _searchText    = string.Empty;
+    [ObservableProperty] private string  _activeFilter  = "All";
+    [ObservableProperty] private string  _statusText    = "Ready — launch a preset to begin.";
+    [ObservableProperty] private string  _currentTime   = DateTime.Now.ToString("HH:mm:ss");
+    [ObservableProperty] private bool    _hasNoSessions = true;
 
-    // Builder
+    // ── Workspace state ───────────────────────────────────────────
+    [ObservableProperty] private bool   _isWorkspaceConnected = false;
+    [ObservableProperty] private bool   _isWorkspaceJoined    = false;
+    [ObservableProperty] private bool   _isConnecting         = false;
+    [ObservableProperty] private string _workspaceCode        = string.Empty;
+    [ObservableProperty] private string _newWorkspaceName      = string.Empty;
+    [ObservableProperty] private string _workspaceName        = string.Empty;
+    [ObservableProperty] private string _workspaceStatus      = "Not connected";
+    [ObservableProperty] private string _userDisplayName      = string.Empty;
+
+    private WorkspaceSettings _wsSettings = new();
+
+    // ── Builder ───────────────────────────────────────────────────
     [ObservableProperty] private string _newPresetName        = string.Empty;
     [ObservableProperty] private string _newPresetIcon        = "⚡";
     [ObservableProperty] private string _newPresetCategory    = "Dev";
@@ -38,23 +63,32 @@ public partial class MainViewModel : ObservableObject
     public List<string> Categories    { get; } = new() { "Dev", "DevOps", "Data", "Design" };
     public List<string> FilterOptions { get; } = new() { "All", "Dev", "DevOps", "Data", "Design" };
 
-    // Per-session CTS dictionary so we can cancel individual sessions
     private readonly Dictionary<string, CancellationTokenSource> _sessionCts = new();
 
+    // ─────────────────────────────────────────────────────────────
     public MainViewModel()
     {
         LoadPresets();
+        LoadWorkspaceSettings();
         StartClock();
+
+        _firebase.PresetsUpdated          += OnFirebasePresetsUpdated;
+        _firebase.ConnectionStatusChanged += s => WorkspaceStatus = s;
+
+        // Auto-connect if previously joined
+        if (_wsSettings.IsJoined && _wsSettings.AutoSync)
+            _ = Task.Run(AutoReconnectAsync);
     }
 
-    // ─── Launch ───────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════
+    // LAUNCH
+    // ═══════════════════════════════════════════════════════════════
 
     [RelayCommand]
     private void LaunchPreset(LaunchPreset? preset)
     {
         if (preset == null) return;
 
-        // Always create a brand-new session tab — never blocks previous ones
         var session = new TerminalSession
         {
             PresetName = preset.Name,
@@ -71,7 +105,6 @@ public partial class MainViewModel : ObservableObject
         HasNoSessions = false;
         StatusText    = $"Launched: {preset.Name}";
 
-        // Fire-and-forget — runs on background thread, button stays enabled immediately
         _ = Task.Run(async () =>
         {
             await _executor.RunSessionAsync(
@@ -79,36 +112,21 @@ public partial class MainViewModel : ObservableObject
                 session,
                 () => OnSessionUpdated(session),
                 cts.Token);
-
             _sessionCts.Remove(session.Id);
         });
     }
 
-    // ─── Session management ───────────────────────────────────────
-
-    [RelayCommand]
-    private void SelectSession(TerminalSession? session)
-    {
-        if (session != null)
-            ActiveSession = session;
-    }
+    // ═══════════════════════════════════════════════════════════════
+    // SESSION MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════
 
     [RelayCommand]
     private void CloseSession(TerminalSession? session)
     {
         if (session == null) return;
-
-        // Cancel and kill
-        if (_sessionCts.TryGetValue(session.Id, out var cts))
-        {
-            cts.Cancel();
-            _sessionCts.Remove(session.Id);
-        }
+        if (_sessionCts.TryGetValue(session.Id, out var cts)) { cts.Cancel(); _sessionCts.Remove(session.Id); }
         _executor.KillSession(session);
-
         Sessions.Remove(session);
-
-        // Switch active session
         ActiveSession = Sessions.LastOrDefault();
         HasNoSessions = Sessions.Count == 0;
         StatusText    = Sessions.Count == 0 ? "Ready — launch a preset to begin." : $"Active sessions: {Sessions.Count}";
@@ -129,12 +147,235 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ClearSession(TerminalSession? session)
+    private void ClearSession(TerminalSession? session) => session?.Lines.Clear();
+
+    // ═══════════════════════════════════════════════════════════════
+    // WORKSPACE — FIREBASE
+    // ═══════════════════════════════════════════════════════════════
+
+    [RelayCommand]
+    private void CreateWorkspace()
     {
-        session?.Lines.Clear();
+        if (string.IsNullOrWhiteSpace(WorkspaceCode))
+        {
+            ShowMessage("Please enter a workspace code.", "Create Workspace");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(UserDisplayName))
+        {
+            ShowMessage("Please enter your display name.", "Create Workspace");
+            return;
+        }
+        if (!FirebaseService.IsConfigured)
+        {
+            ShowMessage("Firebase is not configured yet.\nOpen Services/FirebaseService.cs and replace the placeholder values.\nSee FIREBASE_SETUP.md for instructions.", "Firebase Not Configured");
+            return;
+        }
+
+        // Creating = connecting with a new code. Firebase auto-creates it on first write.
+        _ = Task.Run(async () =>
+        {
+            IsConnecting    = true;
+            WorkspaceStatus = "Creating workspace...";
+
+            try
+            {
+                bool connected = await _firebase.ConnectAsync();
+                if (!connected) { IsConnecting = false; ShowMessage(WorkspaceStatus, "Failed"); return; }
+
+                // Use the name if provided, fallback to code
+                string name = string.IsNullOrWhiteSpace(NewWorkspaceName)
+                    ? WorkspaceCode.ToUpperInvariant().Trim()
+                    : NewWorkspaceName.Trim();
+
+                await _firebase.CreateWorkspaceAsync(WorkspaceCode.ToUpperInvariant().Trim(), name);
+
+                bool joined = await _firebase.JoinWorkspaceAsync(WorkspaceCode.ToUpperInvariant().Trim());
+                if (!joined) { IsConnecting = false; ShowMessage("Failed to join after creating.", "Error"); return; }
+
+                IsWorkspaceConnected = true;
+                IsWorkspaceJoined    = true;
+
+                _wsSettings.WorkspaceCode   = WorkspaceCode.ToUpperInvariant().Trim();
+                _wsSettings.UserDisplayName = UserDisplayName;
+                _wsSettings.IsJoined        = true;
+                _wsStorage.Save(_wsSettings);
+
+                StatusText = $"✓ Workspace created: {WorkspaceCode}";
+            }
+            catch (Exception ex)
+            {
+                ShowMessage($"Error creating workspace:\n{ex.Message}", "Error");
+            }
+            finally
+            {
+                IsConnecting = false;
+            }
+        });
     }
 
-    // ─── Preset management ────────────────────────────────────────
+    [RelayCommand]
+    private void ConnectWorkspace()
+    {
+        _ = Task.Run(ConnectWorkspaceInternalAsync);
+    }
+
+    private async Task ConnectWorkspaceInternalAsync()
+    {
+        if (string.IsNullOrWhiteSpace(WorkspaceCode))
+        {
+            ShowMessage("Please enter a workspace code.", "Workspace");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(UserDisplayName))
+        {
+            ShowMessage("Please enter your display name so teammates know who made changes.", "Workspace");
+            return;
+        }
+        if (!FirebaseService.IsConfigured)
+        {
+            ShowMessage("Firebase is not configured yet.\nOpen Services/FirebaseService.cs and replace the placeholder DatabaseUrl and ApiKey values.\nSee FIREBASE_SETUP.md for instructions.", "Firebase Not Configured");
+            return;
+        }
+
+        IsConnecting  = true;
+        WorkspaceStatus = "Connecting...";
+
+        try
+        {
+            // Connect to Firebase
+            bool connected = await _firebase.ConnectAsync();
+            if (!connected)
+            {
+                IsConnecting = false;
+                ShowMessage(WorkspaceStatus, "Connection Failed");
+                return;
+            }
+
+            IsWorkspaceConnected = true;
+
+            // Join workspace
+            bool joined = await _firebase.JoinWorkspaceAsync(WorkspaceCode.ToUpperInvariant().Trim());
+            if (!joined)
+            {
+                IsConnecting = false;
+                WpfMessageBox.Show($"Workspace '{WorkspaceCode}' not found.\nAsk your team lead for the correct code.", "Not Found", WpfMessageBoxButton.OK, WpfMessageBoxImage.Warning);
+                return;
+            }
+
+            IsWorkspaceJoined = true;
+
+            // Save settings
+            _wsSettings.WorkspaceCode   = WorkspaceCode.ToUpperInvariant().Trim();
+            _wsSettings.UserDisplayName = UserDisplayName;
+            _wsSettings.IsJoined        = true;
+            _wsSettings.AutoSync        = true;
+            _wsStorage.Save(_wsSettings);
+
+            // Load initial presets
+            var teamPresets = await _firebase.FetchAllPresetsAsync();
+            UpdateTeamPresets(teamPresets);
+
+            StatusText = $"✓ Joined workspace: {WorkspaceStatus}";
+        }
+        catch (Exception ex)
+        {
+            WorkspaceStatus = $"Error: {ex.Message}";
+            WpfMessageBox.Show(ex.Message, "Firebase Error", WpfMessageBoxButton.OK, WpfMessageBoxImage.Error);
+        }
+        finally
+        {
+            IsConnecting = false;
+        }
+    }
+
+    [RelayCommand]
+    private void DisconnectWorkspace()
+    {
+        _firebase.LeaveWorkspace();
+        IsWorkspaceJoined    = false;
+        IsWorkspaceConnected = false;
+        TeamPresets.Clear();
+        _wsSettings.IsJoined = false;
+        _wsStorage.Save(_wsSettings);
+        WorkspaceStatus = "Disconnected";
+        StatusText      = "Left workspace.";
+    }
+
+    // Push a local custom preset up to the team workspace
+    [RelayCommand]
+    private void SharePreset(LaunchPreset? preset)
+    {
+        _ = Task.Run(() => SharePresetInternalAsync(preset));
+    }
+
+    private async Task SharePresetInternalAsync(LaunchPreset? preset)
+    {
+        if (preset == null || !IsWorkspaceJoined) return;
+        try
+        {
+            preset.IsTeamPreset = true;
+            await _firebase.PushPresetAsync(preset, UserDisplayName);
+            StatusText = $"Shared: {preset.Name} → {WorkspaceCode}";
+        }
+        catch (Exception ex)
+        {
+            WpfMessageBox.Show($"Share failed: {ex.Message}", "Error", WpfMessageBoxButton.OK, WpfMessageBoxImage.Error);
+        }
+    }
+
+    // Pull a team preset down to local custom presets
+    [RelayCommand]
+    private void PullTeamPreset(LaunchPreset? preset)
+    {
+        if (preset == null) return;
+        var local = new LaunchPreset
+        {
+            Id                 = Guid.NewGuid().ToString("N"),
+            Name               = preset.Name + " (local copy)",
+            Description        = preset.Description,
+            Icon               = preset.Icon,
+            Category           = preset.Category,
+            WorkingDirectory   = preset.WorkingDirectory,
+            OpenUrlAfterLaunch = preset.OpenUrlAfterLaunch,
+            IsCustom           = true,
+            IsTeamPreset       = false,
+        };
+        foreach (var c in preset.Commands)
+            local.Commands.Add(new LaunchCommand { Command = c.Command, Description = c.Description, RunInBackground = c.RunInBackground });
+
+        AllPresets.Add(local);
+        _storage.SaveCustomPresets(AllPresets);
+        ApplyFilter();
+        StatusText = $"Pulled to local: {local.Name}";
+    }
+
+    // Delete a team preset from Firebase
+    [RelayCommand]
+    private void DeleteTeamPreset(LaunchPreset? preset)
+    {
+        _ = Task.Run(() => DeleteTeamPresetInternalAsync(preset));
+    }
+
+    private async Task DeleteTeamPresetInternalAsync(LaunchPreset? preset)
+    {
+        if (preset == null || !IsWorkspaceJoined) return;
+        if (WpfMessageBox.Show($"Delete '{preset.Name}' from the team workspace?",
+            "Confirm", WpfMessageBoxButton.YesNo, WpfMessageBoxImage.Warning) != WpfMessageBoxResult.Yes) return;
+        try
+        {
+            await _firebase.DeletePresetAsync(preset.Id);
+            StatusText = $"Deleted from workspace: {preset.Name}";
+        }
+        catch (Exception ex)
+        {
+            WpfMessageBox.Show($"Delete failed: {ex.Message}", "Error", WpfMessageBoxButton.OK, WpfMessageBoxImage.Error);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PRESET MANAGEMENT (LOCAL)
+    // ═══════════════════════════════════════════════════════════════
 
     [RelayCommand]
     private void BrowseWorkingDir(LaunchPreset? preset)
@@ -153,7 +394,7 @@ public partial class MainViewModel : ObservableObject
     private void CopyScript(LaunchPreset? preset)
     {
         if (preset == null) return;
-        Clipboard.SetText(GenerateBatScript(preset));
+        WpfClipboard.SetText(GenerateBatScript(preset));
         StatusText = $"Copied script: {preset.Name}";
     }
 
@@ -184,22 +425,19 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void RemoveCommand(string? cmd)
-    {
-        if (cmd != null) NewPresetCommands.Remove(cmd);
-    }
+    private void RemoveCommand(string? cmd) { if (cmd != null) NewPresetCommands.Remove(cmd); }
 
     [RelayCommand]
     private void SaveCustomPreset()
     {
         if (string.IsNullOrWhiteSpace(NewPresetName))
         {
-            MessageBox.Show("Please enter a preset name.", "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
+            WpfMessageBox.Show("Please enter a preset name.", "Validation", WpfMessageBoxButton.OK, WpfMessageBoxImage.Warning);
             return;
         }
         if (NewPresetCommands.Count == 0)
         {
-            MessageBox.Show("Please add at least one command.", "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
+            WpfMessageBox.Show("Please add at least one command.", "Validation", WpfMessageBoxButton.OK, WpfMessageBoxImage.Warning);
             return;
         }
 
@@ -224,7 +462,7 @@ public partial class MainViewModel : ObservableObject
     private void DeletePreset(LaunchPreset? preset)
     {
         if (preset == null || !preset.IsCustom) return;
-        if (MessageBox.Show($"Delete '{preset.Name}'?", "Confirm", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        if (WpfMessageBox.Show($"Delete '{preset.Name}'?", "Confirm", WpfMessageBoxButton.YesNo) != WpfMessageBoxResult.Yes) return;
         AllPresets.Remove(preset);
         _storage.SaveCustomPresets(AllPresets);
         ApplyFilter();
@@ -233,16 +471,29 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void SetFilter(string filter) => ActiveFilter = filter;
 
-    // ─── Partial callbacks ────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════
+    // PRIVATE HELPERS
+    // ═══════════════════════════════════════════════════════════════
+
     partial void OnSearchTextChanged(string value)   => ApplyFilter();
     partial void OnActiveFilterChanged(string value) => ApplyFilter();
 
-    // ─── Helpers ──────────────────────────────────────────────────
+    private void OnFirebasePresetsUpdated(List<Models.TeamPreset> presets)
+        => UpdateTeamPresets(presets);
+
+    private void UpdateTeamPresets(List<Models.TeamPreset> presets)
+    {
+        Dispatch(() =>
+        {
+            TeamPresets.Clear();
+            foreach (var tp in presets)
+                TeamPresets.Add(tp.ToLaunchPreset());
+        });
+        StatusText = $"Team presets synced — {presets.Count} presets";
+    }
 
     private void OnSessionUpdated(TerminalSession session)
     {
-        // If this is the active session, nothing extra needed (binding updates automatically)
-        // Update status bar
         int running = Sessions.Count(s => s.IsRunning);
         StatusText = running > 0
             ? $"{running} session(s) running | {Sessions.Count} total"
@@ -256,17 +507,60 @@ public partial class MainViewModel : ObservableObject
         ApplyFilter();
     }
 
+    private void LoadWorkspaceSettings()
+    {
+        _wsSettings      = _wsStorage.Load();
+        WorkspaceCode    = _wsSettings.WorkspaceCode;
+        UserDisplayName  = _wsSettings.UserDisplayName;
+        WorkspaceName    = _wsSettings.WorkspaceName;
+    }
+
+    private async Task AutoReconnectAsync()
+    {
+        try
+        {
+            await Task.Delay(1500); // Let UI load first
+
+            // Only auto-reconnect if user previously joined AND firebase is configured
+            if (!_wsSettings.IsJoined
+                || string.IsNullOrWhiteSpace(_wsSettings.WorkspaceCode)
+                || !FirebaseService.IsConfigured)
+                return;
+
+            WorkspaceCode   = _wsSettings.WorkspaceCode;
+            UserDisplayName = _wsSettings.UserDisplayName;
+            await ConnectWorkspaceInternalAsync();
+        }
+        catch { /* Never crash on auto-reconnect */ }
+    }
+
+    /// <summary>Runs action on UI thread — safe to call from any thread.</summary>
+    private static void Dispatch(Action action)
+        => System.Windows.Application.Current?.Dispatcher.Invoke(action);
+
+    /// <summary>
+    /// Thread-safe MessageBox — safe to call from background threads.
+    /// </summary>
+    private static void ShowMessage(string msg, string title = "DevLauncher")
+    {
+        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+            WpfMessageBox.Show(msg, title, WpfMessageBoxButton.OK, WpfMessageBoxImage.Information));
+    }
+
     private void ApplyFilter()
     {
-        FilteredPresets.Clear();
-        foreach (var p in AllPresets)
+        Dispatch(() =>
         {
-            bool cat    = ActiveFilter == "All" || string.Equals(p.Category, ActiveFilter, StringComparison.OrdinalIgnoreCase);
-            bool search = string.IsNullOrWhiteSpace(SearchText)
-                       || p.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase)
-                       || p.Description.Contains(SearchText, StringComparison.OrdinalIgnoreCase);
-            if (cat && search) FilteredPresets.Add(p);
-        }
+            FilteredPresets.Clear();
+            foreach (var p in AllPresets)
+            {
+                bool cat    = ActiveFilter == "All" || string.Equals(p.Category, ActiveFilter, StringComparison.OrdinalIgnoreCase);
+                bool search = string.IsNullOrWhiteSpace(SearchText)
+                           || p.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase)
+                           || p.Description.Contains(SearchText, StringComparison.OrdinalIgnoreCase);
+                if (cat && search) FilteredPresets.Add(p);
+            }
+        });
     }
 
     private void ResetBuilder()
@@ -276,24 +570,17 @@ public partial class MainViewModel : ObservableObject
         NewPresetOpenUrl = string.Empty; NewPresetCommands.Clear();
     }
 
-    // ─── Folder browser ───────────────────────────────────────────
-    /// <summary>Opens native Windows folder picker, returns selected path or null.</summary>
     public static string? BrowseFolder(string? initialDir = null)
     {
-        using var dlg = new System.Windows.Forms.FolderBrowserDialog
+        using var dlg = new WinForms.FolderBrowserDialog
         {
-            Description         = "Select working directory for this preset",
+            Description            = "Select working directory for this preset",
             UseDescriptionForTitle = true,
-            ShowNewFolderButton = true,
+            ShowNewFolderButton    = true,
         };
-
-        if (!string.IsNullOrWhiteSpace(initialDir) &&
-            System.IO.Directory.Exists(initialDir))
+        if (!string.IsNullOrWhiteSpace(initialDir) && System.IO.Directory.Exists(initialDir))
             dlg.InitialDirectory = initialDir;
-
-        return dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK
-            ? dlg.SelectedPath
-            : null;
+        return dlg.ShowDialog() == WinForms.DialogResult.OK ? dlg.SelectedPath : null;
     }
 
     private static string GenerateBatScript(LaunchPreset p)

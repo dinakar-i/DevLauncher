@@ -1,6 +1,10 @@
 using System.Globalization;
 using System.Windows.Data;
-using System.Windows.Media;
+
+// Explicit aliases to avoid System.Drawing ambiguity (UseWindowsForms=true)
+using WpfColor      = System.Windows.Media.Color;
+using WpfBrush      = System.Windows.Media.Brush;
+using WpfSolidBrush = System.Windows.Media.SolidColorBrush;
 
 namespace DevLauncher.Converters;
 
@@ -11,10 +15,10 @@ public class CategoryToBadgeColorConverter : IValueConverter
         string cat = value?.ToString()?.ToLower() ?? "";
         return cat switch
         {
-            "devops"  => new SolidColorBrush(Color.FromRgb(124, 58, 237)),
-            "data"    => new SolidColorBrush(Color.FromRgb(16, 185, 129)),
-            "design"  => new SolidColorBrush(Color.FromRgb(245, 158, 11)),
-            _         => new SolidColorBrush(Color.FromRgb(0, 229, 255)),
+            "devops" => new WpfSolidBrush(WpfColor.FromRgb(124, 58,  237)),
+            "data"   => new WpfSolidBrush(WpfColor.FromRgb(16,  185, 129)),
+            "design" => new WpfSolidBrush(WpfColor.FromRgb(245, 158, 11)),
+            _        => new WpfSolidBrush(WpfColor.FromRgb(0,   229, 255)),
         };
     }
 
