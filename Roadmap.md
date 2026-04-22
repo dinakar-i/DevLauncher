@@ -313,3 +313,17 @@ Double-click a command chip on any preset card to edit it inline without going i
 ---
 
 *DevLauncher v1.0 — Built for IT professionals who are tired of typing the same terminal commands every morning.*
+
+🧩 3. Automation Types (Modules)
+Each as a pluggable module:
+
+✅ Terminal / CMD / PowerShell automation
+✅ GUI Desktop App automation (FlaUI)
+✅ Browser automation (Playwright)
+✅ File & Folder automation (watch, move, rename, zip)
+✅ Email automation (send, read, filter)
+✅ Office Docs (Excel, Word, PowerPoint)
+✅ System Monitor (CPU, RAM, disk, processes)
+✅ Scheduled Tasks (time-based triggers)
+✅ API / Webhook automation (call REST APIs)
+✅ AI-Powered automation (Claude integration)
