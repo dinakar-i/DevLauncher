@@ -316,6 +316,7 @@ public partial class MainViewModel : ObservableObject
         {
             preset.IsTeamPreset = true;
             await _firebase.PushPresetAsync(preset, UserDisplayName);
+            UpdateTeamPresetVisual();
             StatusText = $"Shared: {preset.Name} → {WorkspaceCode}";
         }
         catch (Exception ex)
@@ -365,12 +366,18 @@ public partial class MainViewModel : ObservableObject
         try
         {
             await _firebase.DeletePresetAsync(preset.Id);
+            UpdateTeamPresetVisual();
             StatusText = $"Deleted from workspace: {preset.Name}";
         }
         catch (Exception ex)
         {
             WpfMessageBox.Show($"Delete failed: {ex.Message}", "Error", WpfMessageBoxButton.OK, WpfMessageBoxImage.Error);
         }
+    }
+
+    private async void UpdateTeamPresetVisual()
+    {
+        UpdateTeamPresets(await _firebase.FetchAllPresetsAsync());
     }
 
     // ═══════════════════════════════════════════════════════════════
