@@ -965,7 +965,7 @@
                                                                                FontFamily="Consolas" FontSize="9"
                                                                                Foreground="{StaticResource Muted2Brush}"/>
                                                                 </StackPanel>
-                                                                <Button Grid.Column="2" Content="⬆ Share"
+                                                                <Button Grid.Column="2" Content="⬆ Push"
                                                                         Style="{StaticResource GreenButton}"
                                                                         Padding="12,6" FontSize="10"
                                                                         Command="{Binding DataContext.SharePresetCommand,
