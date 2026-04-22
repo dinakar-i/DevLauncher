@@ -202,6 +202,7 @@ public partial class MainViewModel : ObservableObject
                 _wsStorage.Save(_wsSettings);
 
                 StatusText = $"✓ Workspace created: {WorkspaceCode}";
+                UpdateTeamPresetVisual();
             }
             catch (Exception ex)
             {
@@ -273,8 +274,7 @@ public partial class MainViewModel : ObservableObject
             _wsStorage.Save(_wsSettings);
 
             // Load initial presets
-            var teamPresets = await _firebase.FetchAllPresetsAsync();
-            UpdateTeamPresets(teamPresets);
+            UpdateTeamPresetVisual();
 
             StatusText = $"✓ Joined workspace: {WorkspaceStatus}";
         }
