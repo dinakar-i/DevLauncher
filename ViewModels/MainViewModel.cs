@@ -346,6 +346,7 @@ public partial class MainViewModel : ObservableObject
             local.Commands.Add(new LaunchCommand { Command = c.Command, Description = c.Description, RunInBackground = c.RunInBackground });
 
         AllPresets.Add(local);
+        MakePresetsOrderByLastEdited();
         _storage.SaveCustomPresets(AllPresets);
         ApplyFilter();
         StatusText = $"Pulled to local: {local.Name}";
@@ -459,6 +460,7 @@ public partial class MainViewModel : ObservableObject
             preset.Commands.Add(new LaunchCommand { Command = cmd });
 
         AllPresets.Add(preset);
+        MakePresetsOrderByLastEdited();
         _storage.SaveCustomPresets(AllPresets);
         ApplyFilter();
         ResetBuilder();
@@ -509,11 +511,25 @@ public partial class MainViewModel : ObservableObject
 
     private void LoadPresets()
     {
-        foreach (var p in _storage.GetBuiltInPresets()) AllPresets.Add(p);
+       // foreach (var p in _storage.GetBuiltInPresets()) AllPresets.Add(p);
         foreach (var p in _storage.LoadCustomPresets())  AllPresets.Add(p);
+        MakePresetsOrderByLastEdited();
         ApplyFilter();
     }
+    
+    private void MakePresetsOrderByLastEdited()
+    {
+      var sorted = AllPresets
+        .OrderByDescending(p => p.LastEditedAt)
+        .ToList();
 
+    AllPresets.Clear();
+
+    foreach (var item in sorted)
+    {
+        AllPresets.Add(item);
+    }
+    }
     private void LoadWorkspaceSettings()
     {
         _wsSettings      = _wsStorage.Load();

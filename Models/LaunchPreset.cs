@@ -16,7 +16,7 @@ public class LaunchPreset
     // Team preset metadata
     public bool   IsTeamPreset        { get; set; } = false;
     public string LastEditedBy        { get; set; } = string.Empty;
-    public string LastEditedAt        { get; set; } = string.Empty;
+    public DateTime LastEditedAt      { get; set; } = DateTime.UtcNow;
 
     public ObservableCollection<LaunchCommand> Commands { get; set; } = new();
 }

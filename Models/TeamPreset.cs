@@ -16,7 +16,7 @@ public class TeamPreset
     public string   WorkingDirectory { get; set; } = string.Empty;
     public string   OpenUrlAfterLaunch { get; set; } = string.Empty;
     public string   LastEditedBy    { get; set; } = string.Empty;
-    public string   LastEditedAt    { get; set; } = string.Empty;
+    public DateTime   LastEditedAt    { get; set; } = DateTime.UtcNow;
     public List<TeamCommand> Commands { get; set; } = new();
 
     /// <summary>Convert to LaunchPreset for use in the app.</summary>
@@ -58,7 +58,7 @@ public class TeamPreset
         WorkingDirectory   = p.WorkingDirectory,
         OpenUrlAfterLaunch = p.OpenUrlAfterLaunch,
         LastEditedBy       = editedBy,
-        LastEditedAt       = DateTime.UtcNow.ToString("o"),
+        LastEditedAt       = DateTime.UtcNow,
         Commands           = p.Commands.Select(c => new TeamCommand
         {
             Command         = c.Command,
