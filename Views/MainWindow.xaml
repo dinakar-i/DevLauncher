@@ -965,7 +965,7 @@
                                                                                FontFamily="Consolas" FontSize="9"
                                                                                Foreground="{StaticResource Muted2Brush}"/>
                                                                 </StackPanel>
-                                                                <Button Grid.Column="2" Content="⬆ Push"
+                                                                <Button Grid.Column="2" Content="⬆ Share"
                                                                         Style="{StaticResource GreenButton}"
                                                                         Padding="12,6" FontSize="10"
                                                                         Command="{Binding DataContext.SharePresetCommand,
@@ -1356,39 +1356,121 @@
                                 </Grid>
                             </Border>
 
-                            <!-- Terminal output area — shows ActiveSession lines -->
-                            <Border Grid.Row="1" Background="{StaticResource BgBrush}">
-                                <!-- No session placeholder -->
-                                <TextBlock Text="No session selected. Launch a preset to see output here."
-                                           FontFamily="Consolas" FontSize="11"
-                                           Foreground="{StaticResource MutedBrush}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           Visibility="{Binding HasNoSessions, Converter={StaticResource BoolVis}}"/>
-                            </Border>
+                            <!-- Terminal output grid — search bar + output -->
+                            <Grid Grid.Row="1">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
 
-                            <!-- Actual terminal lines (drawn in code-behind, bound to ActiveSession) -->
-                            <ScrollViewer Grid.Row="1" x:Name="TerminalScroll"
-                                          VerticalScrollBarVisibility="Auto"
-                                          HorizontalScrollBarVisibility="Auto"
-                                          Padding="12,8"
-                                          Background="{StaticResource BgBrush}"
-                                          Visibility="{Binding HasNoSessions, Converter={StaticResource BoolVis}, ConverterParameter=invert}">
-                                <ItemsControl x:Name="TerminalOutput"
-                                              ItemsSource="{Binding ActiveSession.Lines}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate DataType="{x:Type models:TerminalLine}">
-                                            <TextBlock Text="{Binding Text}"
-                                                       FontFamily="Consolas"
-                                                       FontSize="11"
-                                                       TextWrapping="Wrap">
-                                                <TextBlock.Foreground>
-                                                    <Binding Path="Type" Converter="{StaticResource TermColor}"/>
-                                                </TextBlock.Foreground>
-                                            </TextBlock>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
+                                <!-- ── Inline Search Bar (Ctrl+F) ── -->
+                                <Border x:Name="TerminalSearchBar"
+                                        Grid.Row="0"
+                                        Visibility="Collapsed"
+                                        Background="#0D0F14"
+                                        BorderBrush="{StaticResource AccentBrush}"
+                                        BorderThickness="0,0,0,1"
+                                        Padding="10,6">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Search icon label -->
+                                        <TextBlock Grid.Column="0" Text="🔍"
+                                                   FontSize="12" VerticalAlignment="Center"
+                                                   Margin="0,0,8,0"/>
+
+                                        <!-- Search input -->
+                                        <TextBox Grid.Column="1"
+                                                 x:Name="TerminalSearchBox"
+                                                 Height="28" FontSize="12"
+                                                 Padding="8,0"
+                                                 VerticalContentAlignment="Center"
+                                                 Background="#0A0C10"
+                                                 Foreground="{StaticResource TextBrush}"
+                                                 BorderBrush="{StaticResource BorderBrush}"
+                                                 CaretBrush="{StaticResource AccentBrush}"
+                                                 TextChanged="TerminalSearch_TextChanged">
+                                            <TextBox.InputBindings>
+                                                <KeyBinding Key="F3"             Command="{Binding NextMatchCommand}"/>
+                                                <KeyBinding Key="F3" Modifiers="Shift" Command="{Binding PrevMatchCommand}"/>
+                                                <KeyBinding Key="Escape"         Command="{Binding CloseSearchCommand}"/>
+                                            </TextBox.InputBindings>
+                                        </TextBox>
+
+                                        <!-- Match counter -->
+                                        <TextBlock Grid.Column="2"
+                                                   x:Name="MatchCountLabel"
+                                                   Text="0 matches"
+                                                   FontFamily="Consolas" FontSize="10"
+                                                   Foreground="{StaticResource Muted2Brush}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="10,0"/>
+
+                                        <!-- Prev / Next buttons -->
+                                        <Button Grid.Column="3" Content="▲"
+                                                Style="{StaticResource OutlineButton}"
+                                                Height="28" Padding="8,0" FontSize="10"
+                                                ToolTip="Previous match (Shift+F3)"
+                                                Click="SearchPrev_Click"/>
+                                        <Button Grid.Column="4" Content="▼"
+                                                Style="{StaticResource OutlineButton}"
+                                                Height="28" Padding="8,0" FontSize="10"
+                                                Margin="4,0,0,0" ToolTip="Next match (F3)"
+                                                Click="SearchNext_Click"/>
+
+                                        <!-- Close button -->
+                                        <Button Grid.Column="5" Content="✕"
+                                                Style="{StaticResource DangerButton}"
+                                                Height="28" Padding="8,0" FontSize="10"
+                                                Margin="8,0,0,0" ToolTip="Close search (Esc)"
+                                                Click="SearchClose_Click"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- No session placeholder -->
+                                <Border Grid.Row="1" Background="{StaticResource BgBrush}"
+                                        Visibility="{Binding HasNoSessions, Converter={StaticResource BoolVis}}">
+                                    <TextBlock Text="No session selected. Launch a preset to see output here."
+                                               FontFamily="Consolas" FontSize="11"
+                                               Foreground="{StaticResource MutedBrush}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+
+                                <!-- Terminal output — ItemsControl with highlight support -->
+                                <ScrollViewer Grid.Row="1" x:Name="TerminalScroll"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Auto"
+                                              Padding="12,8"
+                                              Background="{StaticResource BgBrush}"
+                                              Visibility="{Binding HasNoSessions, Converter={StaticResource BoolVis}, ConverterParameter=invert}"
+                                              KeyDown="TerminalScroll_KeyDown"
+                                              Focusable="True">
+                                    <ItemsControl x:Name="TerminalOutput"
+                                                  ItemsSource="{Binding ActiveSession.Lines}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type models:TerminalLine}">
+                                                <TextBlock x:Name="TermLine"
+                                                           Text="{Binding Text}"
+                                                           FontFamily="Consolas"
+                                                           FontSize="11"
+                                                           TextWrapping="Wrap"
+                                                           Tag="{Binding}">
+                                                    <TextBlock.Foreground>
+                                                        <Binding Path="Type" Converter="{StaticResource TermColor}"/>
+                                                    </TextBlock.Foreground>
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Grid>
                         </Grid>
                     </Border>
                 </Grid>

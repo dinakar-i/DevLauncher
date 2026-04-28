@@ -149,6 +149,14 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ClearSession(TerminalSession? session) => session?.Lines.Clear();
 
+    // ─── Terminal Search ───────────────────────────────────────────
+    [ObservableProperty] private int _searchMatchIndex = 0;
+    [ObservableProperty] private int _searchMatchCount = 0;
+
+    [RelayCommand] private void NextMatch() => SearchMatchIndex = SearchMatchCount > 0 ? (SearchMatchIndex + 1) % SearchMatchCount : 0;
+    [RelayCommand] private void PrevMatch() => SearchMatchIndex = SearchMatchCount > 0 ? (SearchMatchIndex - 1 + SearchMatchCount) % SearchMatchCount : 0;
+    [RelayCommand] private void CloseSearch() { /* handled in code-behind */ }
+
     // ═══════════════════════════════════════════════════════════════
     // WORKSPACE — FIREBASE
     // ═══════════════════════════════════════════════════════════════
