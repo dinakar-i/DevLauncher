@@ -25,6 +25,7 @@
 | Live Output Streaming | Real stdout/stderr streamed line-by-line into the in-app terminal panel |
 | Background Processes | Long-running commands (dev servers, watchers) stay alive independently |
 | Kill Controls | Kill individual sessions or stop all with one click |
+| Terminal Search | Matching lines are highlighted in amber |
 | Custom Preset Builder | Build your own presets with commands, working directory, and auto-open URL |
 | Icon Picker | 200+ categorized emoji icons to visually identify presets |
 | Script Export | Export any preset as a `.bat` or `.sh` shell script |
