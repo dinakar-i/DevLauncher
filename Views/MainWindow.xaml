@@ -368,6 +368,25 @@
                                                            Foreground="{StaticResource Muted2Brush}"/>
                                             </StackPanel>
                                         </Border>
+                                        <Border x:Name="TabMonitorHeader" CornerRadius="6" Padding="16,7"
+                                                Cursor="Hand" MouseLeftButtonDown="Tab_Monitor_Click">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="Transparent"/>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock x:Name="TabMonitorText" Text="Monitor"
+                                                           FontFamily="Consolas" FontSize="11" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Muted2Brush}"/>
+                                                <Border CornerRadius="99" Padding="5,1" Margin="6,0,0,0"
+                                                        Background="#1A2030">
+                                                    <TextBlock Text="{Binding MonitorProcesses.Count}"
+                                                               FontFamily="Consolas" FontSize="9"
+                                                               Foreground="{StaticResource AccentBrush}"/>
+                                                </Border>
+                                            </StackPanel>
+                                        </Border>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -976,6 +995,164 @@
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <!-- MONITOR panel -->
+                            <ScrollViewer x:Name="MonitorPanel" Visibility="Collapsed"
+                                          VerticalScrollBarVisibility="Auto"
+                                          Background="{StaticResource BgBrush}">
+                                <StackPanel Margin="28">
+                                    <TextBlock Text="Process Monitor"
+                                               FontFamily="Segoe UI" FontWeight="ExtraBold" FontSize="20"
+                                               Foreground="{StaticResource TextBrush}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="Live health metrics for all running session processes — refreshed every 2 seconds"
+                                               FontFamily="Consolas" FontSize="10"
+                                               Foreground="{StaticResource Muted2Brush}" Margin="0,0,0,20"/>
+
+                                    <!-- Empty state -->
+                                    <Border Background="{StaticResource SurfaceBrush}"
+                                            BorderBrush="{StaticResource BorderBrush}"
+                                            BorderThickness="1" CornerRadius="10" Padding="28,24">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding MonitorProcesses.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock Text="No active processes. Launch a preset above to start monitoring."
+                                                   FontFamily="Consolas" FontSize="11"
+                                                   Foreground="{StaticResource MutedBrush}"
+                                                   HorizontalAlignment="Center"/>
+                                    </Border>
+
+                                    <!-- Process table -->
+                                    <Border Background="{StaticResource SurfaceBrush}"
+                                            BorderBrush="{StaticResource BorderBrush}"
+                                            BorderThickness="1" CornerRadius="10">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding MonitorProcesses.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+
+                                            <!-- Table header -->
+                                            <Border Background="{StaticResource Surface2Brush}"
+                                                    BorderBrush="{StaticResource BorderBrush}"
+                                                    BorderThickness="0,0,0,1"
+                                                    CornerRadius="10,10,0,0" Padding="14,10">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="28"/>
+                                                        <ColumnDefinition Width="160"/>
+                                                        <ColumnDefinition Width="120"/>
+                                                        <ColumnDefinition Width="70"/>
+                                                        <ColumnDefinition Width="80"/>
+                                                        <ColumnDefinition Width="100"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="64"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0"/>
+                                                    <TextBlock Grid.Column="1" Text="SESSION"
+                                                               FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource Muted2Brush}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="2" Text="PROCESS"
+                                                               FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource Muted2Brush}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="3" Text="PID"
+                                                               FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource Muted2Brush}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="4" Text="CPU %"
+                                                               FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource Muted2Brush}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="5" Text="MEMORY"
+                                                               FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource Muted2Brush}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="6" Text="UPTIME"
+                                                               FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource Muted2Brush}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="7"/>
+                                                </Grid>
+                                            </Border>
+
+                                            <!-- Table rows -->
+                                            <ItemsControl ItemsSource="{Binding MonitorProcesses}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type models:ProcessMonitorItem}">
+                                                        <Border BorderBrush="{StaticResource BorderBrush}"
+                                                                BorderThickness="0,0,0,1" Padding="14,11">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="28"/>
+                                                                    <ColumnDefinition Width="160"/>
+                                                                    <ColumnDefinition Width="120"/>
+                                                                    <ColumnDefinition Width="70"/>
+                                                                    <ColumnDefinition Width="80"/>
+                                                                    <ColumnDefinition Width="100"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="64"/>
+                                                                </Grid.ColumnDefinitions>
+
+                                                                <TextBlock Grid.Column="0" Text="{Binding SessionIcon}"
+                                                                           FontSize="13" VerticalAlignment="Center"/>
+
+                                                                <TextBlock Grid.Column="1" Text="{Binding SessionName}"
+                                                                           FontFamily="Consolas" FontSize="11" FontWeight="SemiBold"
+                                                                           Foreground="{StaticResource TextBrush}"
+                                                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+
+                                                                <TextBlock Grid.Column="2" Text="{Binding ProcessName}"
+                                                                           FontFamily="Consolas" FontSize="11"
+                                                                           Foreground="{StaticResource AccentBrush}"
+                                                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+
+                                                                <TextBlock Grid.Column="3" Text="{Binding Pid}"
+                                                                           FontFamily="Consolas" FontSize="11"
+                                                                           Foreground="{StaticResource Muted2Brush}"
+                                                                           VerticalAlignment="Center"/>
+
+                                                                <TextBlock Grid.Column="4"
+                                                                           Text="{Binding CpuPercent, StringFormat={}{0:F1}%}"
+                                                                           FontFamily="Consolas" FontSize="11"
+                                                                           Foreground="{StaticResource Accent3Brush}"
+                                                                           VerticalAlignment="Center"/>
+
+                                                                <TextBlock Grid.Column="5"
+                                                                           Text="{Binding MemoryMb, StringFormat={}{0} MB}"
+                                                                           FontFamily="Consolas" FontSize="11"
+                                                                           Foreground="{StaticResource WarnBrush}"
+                                                                           VerticalAlignment="Center"/>
+
+                                                                <TextBlock Grid.Column="6" Text="{Binding Uptime}"
+                                                                           FontFamily="Consolas" FontSize="11"
+                                                                           Foreground="{StaticResource Muted2Brush}"
+                                                                           VerticalAlignment="Center"/>
+
+                                                                <Button Grid.Column="7" Content="✕ Kill"
+                                                                        Style="{StaticResource DangerButton}"
+                                                                        Padding="6,4" FontSize="9"
+                                                                        VerticalAlignment="Center"
+                                                                        Command="{Binding DataContext.KillMonitorProcessCommand,
+                                                                                  RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}"/>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>

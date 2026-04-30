@@ -36,25 +36,29 @@ public partial class MainWindow : Window
     private void Tab_Presets_Click(object sender, MouseButtonEventArgs e) => SetActiveTab("Presets");
     private void Tab_Custom_Click(object sender, MouseButtonEventArgs e)  => SetActiveTab("Custom");
     private void Tab_Team_Click(object sender, MouseButtonEventArgs e)    => SetActiveTab("Team");
+    private void Tab_Monitor_Click(object sender, MouseButtonEventArgs e) => SetActiveTab("Monitor");
 
     private void SetActiveTab(string tab)
     {
         PresetsPanel.Visibility = tab == "Presets" ? Visibility.Visible : Visibility.Collapsed;
         CustomPanel.Visibility  = tab == "Custom"  ? Visibility.Visible : Visibility.Collapsed;
         TeamPanel.Visibility    = tab == "Team"    ? Visibility.Visible : Visibility.Collapsed;
+        MonitorPanel.Visibility = tab == "Monitor" ? Visibility.Visible : Visibility.Collapsed;
 
         var accent      = (LinearGradientBrush)FindResource("AccentGradient");
         var transparent = new SolidColorBrush(Colors.Transparent);
         var white       = new SolidColorBrush(Colors.White);
         var muted       = (SolidColorBrush)FindResource("Muted2Brush");
 
-        TabPresetsHeader.Background = tab == "Presets" ? accent      : transparent;
-        TabCustomHeader.Background  = tab == "Custom"  ? accent      : transparent;
-        TabTeamHeader.Background    = tab == "Team"    ? accent      : transparent;
+        TabPresetsHeader.Background  = tab == "Presets"  ? accent : transparent;
+        TabCustomHeader.Background   = tab == "Custom"   ? accent : transparent;
+        TabTeamHeader.Background     = tab == "Team"     ? accent : transparent;
+        TabMonitorHeader.Background  = tab == "Monitor"  ? accent : transparent;
 
-        TabPresetsText.Foreground   = tab == "Presets" ? white : muted;
-        TabCustomText.Foreground    = tab == "Custom"  ? white : muted;
-        TabTeamText.Foreground      = tab == "Team"    ? white : muted;
+        TabPresetsText.Foreground    = tab == "Presets"  ? white : muted;
+        TabCustomText.Foreground     = tab == "Custom"   ? white : muted;
+        TabTeamText.Foreground       = tab == "Team"     ? white : muted;
+        TabMonitorText.Foreground    = tab == "Monitor"  ? white : muted;
     }
 
     // ─── Session clicks ────────────────────────────────────────────

@@ -25,10 +25,11 @@ public partial class MainViewModel : ObservableObject
     private readonly WorkspaceStorageService  _wsStorage       = new();
 
     // ── Collections ───────────────────────────────────────────────
-    public ObservableCollection<TerminalSession> Sessions        { get; } = new();
-    public ObservableCollection<LaunchPreset>    AllPresets      { get; } = new();
-    public ObservableCollection<LaunchPreset>    FilteredPresets { get; } = new();
-    public ObservableCollection<LaunchPreset>    TeamPresets     { get; } = new();
+    public ObservableCollection<TerminalSession>   Sessions        { get; } = new();
+    public ObservableCollection<LaunchPreset>      AllPresets      { get; } = new();
+    public ObservableCollection<LaunchPreset>      FilteredPresets { get; } = new();
+    public ObservableCollection<LaunchPreset>      TeamPresets     { get; } = new();
+    public ObservableCollection<ProcessMonitorItem> MonitorProcesses { get; } = new();
 
     // ── General state ─────────────────────────────────────────────
     [ObservableProperty] private TerminalSession? _activeSession;
@@ -71,6 +72,7 @@ public partial class MainViewModel : ObservableObject
         LoadPresets();
         LoadWorkspaceSettings();
         StartClock();
+        StartMonitorTimer();
 
         _firebase.PresetsUpdated          += OnFirebasePresetsUpdated;
         _firebase.ConnectionStatusChanged += s => WorkspaceStatus = s;
@@ -148,6 +150,13 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void ClearSession(TerminalSession? session) => session?.Lines.Clear();
+
+    [RelayCommand]
+    private void KillMonitorProcess(ProcessMonitorItem? item)
+    {
+        if (item == null) return;
+        try { item.Process.Kill(entireProcessTree: true); } catch { }
+    }
 
     // ─── Terminal Search ───────────────────────────────────────────
     [ObservableProperty] private int _searchMatchIndex = 0;
@@ -639,5 +648,32 @@ public partial class MainViewModel : ObservableObject
         var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         t.Tick += (_, _) => CurrentTime = DateTime.Now.ToString("HH:mm:ss");
         t.Start();
+    }
+
+    private void StartMonitorTimer()
+    {
+        var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        t.Tick += (_, _) => RefreshMonitor();
+        t.Start();
+    }
+
+    private void RefreshMonitor()
+    {
+        for (int i = MonitorProcesses.Count - 1; i >= 0; i--)
+        {
+            MonitorProcesses[i].Refresh();
+            if (!MonitorProcesses[i].IsAlive)
+                MonitorProcesses.RemoveAt(i);
+        }
+
+        var tracked = MonitorProcesses.Select(m => m.Process).ToHashSet();
+        foreach (var session in Sessions)
+        {
+            foreach (var proc in session.Processes.ToList())
+            {
+                if (!tracked.Contains(proc))
+                    MonitorProcesses.Add(new ProcessMonitorItem(session, proc));
+            }
+        }
     }
 }
