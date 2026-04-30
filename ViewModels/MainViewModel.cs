@@ -38,6 +38,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string  _statusText    = "Ready — launch a preset to begin.";
     [ObservableProperty] private string  _currentTime   = DateTime.Now.ToString("HH:mm:ss");
     [ObservableProperty] private bool    _hasNoSessions = true;
+    [ObservableProperty] private string  _activeSessionInput = string.Empty;
+    [ObservableProperty] private bool    _shellCursorVisible = false;
 
     // ── Workspace state ───────────────────────────────────────────
     [ObservableProperty] private bool   _isWorkspaceConnected = false;
@@ -93,10 +95,11 @@ public partial class MainViewModel : ObservableObject
 
         var session = new TerminalSession
         {
-            PresetName = preset.Name,
-            PresetIcon = preset.Icon,
-            StartedAt  = DateTime.Now,
-            IsRunning  = true,
+            PresetName       = preset.Name,
+            PresetIcon       = preset.Icon,
+            StartedAt        = DateTime.Now,
+            IsRunning        = true,
+            WorkingDirectory = preset.WorkingDirectory,
         };
 
         var cts = new CancellationTokenSource();
@@ -114,7 +117,33 @@ public partial class MainViewModel : ObservableObject
                 session,
                 () => OnSessionUpdated(session),
                 cts.Token);
+
+            bool cancelled = cts.IsCancellationRequested;
             _sessionCts.Remove(session.Id);
+
+            // Start persistent shell after preset finishes (unless cancelled/closed)
+            if (!cancelled)
+            {
+                await _executor.StartInteractiveShellAsync(
+                    session,
+                    CancellationToken.None,
+                    onShellReady: () => Dispatch(() =>
+                    {
+                        if (ActiveSession == session) ShellCursorVisible = true;
+                    }),
+                    onPromptDetected: () => Dispatch(() =>
+                    {
+                        // Shell finished a command and is idle again
+                        session.IsRunning = false;
+                        if (ActiveSession == session) ShellCursorVisible = true;
+                    }));
+                // Shell exited — hide cursor for this session
+                Dispatch(() =>
+                {
+                    session.IsRunning = false;
+                    if (ActiveSession == session) ShellCursorVisible = false;
+                });
+            }
         });
     }
 
@@ -143,13 +172,41 @@ public partial class MainViewModel : ObservableObject
             _executor.KillSession(s);
         }
         Sessions.Clear();
-        ActiveSession = null;
-        HasNoSessions = true;
-        StatusText    = "All sessions closed.";
+        ActiveSession      = null;
+        HasNoSessions      = true;
+        ShellCursorVisible = false;
+        StatusText         = "All sessions closed.";
     }
 
     [RelayCommand]
     private void ClearSession(TerminalSession? session) => session?.Lines.Clear();
+
+    [RelayCommand]
+    private void SendSessionCommand()
+    {
+        var session = ActiveSession;
+        if (session?.ShellWriter == null || string.IsNullOrWhiteSpace(ActiveSessionInput)) return;
+
+        var cmd    = ActiveSessionInput.Trim();
+        var writer = session.ShellWriter;
+
+        // Finalize the in-progress line: strip cursor, keep as history
+        if (session.CurrentInputLine != null)
+        {
+            session.CurrentInputLine.Text = $"$ {cmd}";
+            session.CurrentInputLine = null;
+        }
+
+        // Mark running + clear previous error — outline turns green, status → "● Running"
+        session.IsRunning = true;
+        session.HasError  = false;
+
+        // Clear input AFTER IsRunning=true so OnActiveSessionInputChanged sees IsRunning=true
+        // and correctly keeps the cursor hidden (command is in-flight, not idle)
+        ActiveSessionInput = string.Empty;
+
+        _ = Task.Run(() => { try { writer.WriteLine(cmd); } catch { } });
+    }
 
     [RelayCommand]
     private void KillMonitorProcess(ProcessMonitorItem? item)
@@ -504,6 +561,43 @@ public partial class MainViewModel : ObservableObject
     partial void OnSearchTextChanged(string value)   => ApplyFilter();
     partial void OnActiveFilterChanged(string value) => ApplyFilter();
 
+    partial void OnActiveSessionInputChanged(string value)
+    {
+        var session = ActiveSession;
+        if (session?.ShellWriter == null) return;
+
+        if (string.IsNullOrEmpty(value))
+        {
+            // Cursor only when the shell is idle — not while a command is executing
+            ShellCursorVisible = !session.IsRunning;
+            if (session.CurrentInputLine != null)
+            {
+                session.Lines.Remove(session.CurrentInputLine);
+                session.CurrentInputLine = null;
+            }
+            return;
+        }
+
+        // User is typing — hide the standalone cursor (▌ is embedded in CurrentInputLine)
+        ShellCursorVisible = false;
+
+        if (session.CurrentInputLine == null)
+        {
+            session.CurrentInputLine = new TerminalLine { Type = TerminalLineType.Command };
+            session.Lines.Add(session.CurrentInputLine);
+            while (session.Lines.Count > 2000) session.Lines.RemoveAt(0);
+        }
+
+        // Update in-place — Text is [ObservableProperty] so the bound TextBlock refreshes
+        session.CurrentInputLine.Text = $"$ {value}▌";
+    }
+
+    partial void OnActiveSessionChanged(TerminalSession? value)
+    {
+        // Restore cursor state when switching between sessions
+        ShellCursorVisible = value?.ShellWriter != null && string.IsNullOrEmpty(ActiveSessionInput);
+    }
+
     private void OnFirebasePresetsUpdated(List<Models.TeamPreset> presets)
         => UpdateTeamPresets(presets);
 
@@ -659,20 +753,29 @@ public partial class MainViewModel : ObservableObject
 
     private void RefreshMonitor()
     {
+        // Remove entries that are dead OR belong to a session that is no longer running
         for (int i = MonitorProcesses.Count - 1; i >= 0; i--)
         {
             MonitorProcesses[i].Refresh();
-            if (!MonitorProcesses[i].IsAlive)
+            var owner = Sessions.FirstOrDefault(s => s.Id == MonitorProcesses[i].SessionId);
+            if (!MonitorProcesses[i].IsAlive || owner?.IsRunning != true)
                 MonitorProcesses.RemoveAt(i);
         }
 
+        // Add alive processes from currently-running sessions only.
+        // Skip exited ones — session.Processes accumulates all historical processes
+        // and dead ones would cause phantom duplicate rows.
         var tracked = MonitorProcesses.Select(m => m.Process).ToHashSet();
-        foreach (var session in Sessions)
+        foreach (var session in Sessions.Where(s => s.IsRunning))
         {
             foreach (var proc in session.Processes.ToList())
             {
-                if (!tracked.Contains(proc))
+                try
+                {
+                    if (proc.HasExited || tracked.Contains(proc)) continue;
                     MonitorProcesses.Add(new ProcessMonitorItem(session, proc));
+                }
+                catch { /* process may have just exited */ }
             }
         }
     }

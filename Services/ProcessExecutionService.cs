@@ -165,6 +165,99 @@ public class ProcessExecutionService
         catch { /* stream closed or cancelled */ }
     }
 
+    /// <summary>
+    /// Starts a persistent cmd.exe shell for the session. Keeps running until the session
+    /// is killed — commands sent via session.ShellWriter.WriteLine() execute in-place,
+    /// preserving directory, env vars, and other shell state across calls.
+    /// </summary>
+    public async Task StartInteractiveShellAsync(
+        TerminalSession session,
+        CancellationToken ct,
+        Action? onShellReady      = null,
+        Action? onPromptDetected  = null)
+    {
+        void Emit(string text, TerminalLineType type)
+        {
+            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+            {
+                session.Lines.Add(new TerminalLine { Text = text, Type = type });
+                while (session.Lines.Count > 2000)
+                    session.Lines.RemoveAt(0);
+            });
+        }
+
+        var psi = new ProcessStartInfo
+        {
+            FileName               = "cmd.exe",
+            // /Q = quiet (suppress command echo — we echo it ourselves styled as Command)
+            // /D = skip registry AUTORUN keys for faster startup
+            Arguments              = "/Q /D",
+            WorkingDirectory       = ResolveDirectory(session.WorkingDirectory),
+            UseShellExecute        = false,
+            RedirectStandardInput  = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError  = true,
+            CreateNoWindow         = true,
+            StandardOutputEncoding = System.Text.Encoding.UTF8,
+            StandardErrorEncoding  = System.Text.Encoding.UTF8,
+        };
+
+        // $P$G$_ = "path>" + CR+LF — the trailing newline lets ReadLineAsync capture the
+        // prompt as a complete line instead of blocking until the next command runs.
+        psi.Environment["PROMPT"] = "$P$G$_";
+
+        Process process;
+        try
+        {
+            process = new Process { StartInfo = psi };
+            process.Start();
+        }
+        catch (Exception ex)
+        {
+            Emit($"  ✗ Shell failed to start: {ex.Message}", TerminalLineType.Error);
+            return;
+        }
+
+        session.ShellWriter           = process.StandardInput;
+        session.ShellWriter.AutoFlush = true;
+        session.Processes.Add(process);
+        onShellReady?.Invoke();
+
+        var stdoutTask = StreamShellStdoutAsync(process.StandardOutput, Emit, onPromptDetected, ct);
+        var stderrTask = StreamAsync(process.StandardError, TerminalLineType.Error, Emit, ct);
+
+        await Task.WhenAll(stdoutTask, stderrTask);
+        try { await process.WaitForExitAsync(ct); } catch { }
+
+        session.ShellWriter = null;
+    }
+
+    // Streams the shell's stdout and fires onPromptDetected whenever the shell emits
+    // its next prompt (a line ending with '>'), indicating a command has finished.
+    private static async Task StreamShellStdoutAsync(
+        StreamReader reader,
+        Action<string, TerminalLineType> emit,
+        Action? onPromptDetected,
+        CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var line = await reader.ReadLineAsync(ct);
+                if (line == null) break;
+                if (!string.IsNullOrEmpty(line))
+                {
+                    emit(line, TerminalLineType.Output);
+                    // cmd.exe prompt ($P$G$_) always ends with '>'
+                    if (line.TrimEnd().EndsWith('>'))
+                        onPromptDetected?.Invoke();
+                }
+            }
+        }
+        catch { /* stream closed or cancelled */ }
+    }
+
     public void KillSession(TerminalSession session)
     {
         foreach (var p in session.Processes)

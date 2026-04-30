@@ -262,11 +262,12 @@
                                                                 <Style TargetType="TextBlock">
                                                                     <Setter Property="Foreground" Value="{StaticResource Accent3Brush}"/>
                                                                     <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding HasError}" Value="True">
-                                                                            <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
-                                                                        </DataTrigger>
                                                                         <DataTrigger Binding="{Binding IsRunning}" Value="False">
                                                                             <Setter Property="Foreground" Value="{StaticResource Muted2Brush}"/>
+                                                                        </DataTrigger>
+                                                                        <!-- HasError must come AFTER IsRunning=False so red wins over muted -->
+                                                                        <DataTrigger Binding="{Binding HasError}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
                                                                         </DataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
@@ -1628,25 +1629,50 @@
                                               Background="{StaticResource BgBrush}"
                                               Visibility="{Binding HasNoSessions, Converter={StaticResource BoolVis}, ConverterParameter=invert}"
                                               KeyDown="TerminalScroll_KeyDown"
+                                              PreviewTextInput="TerminalScroll_TextInput"
+                                              MouseDown="TerminalScroll_MouseDown"
                                               Focusable="True">
-                                    <ItemsControl x:Name="TerminalOutput"
-                                                  ItemsSource="{Binding ActiveSession.Lines}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate DataType="{x:Type models:TerminalLine}">
-                                                <TextBlock x:Name="TermLine"
-                                                           Text="{Binding Text}"
-                                                           FontFamily="Consolas"
-                                                           FontSize="11"
-                                                           TextWrapping="Wrap"
-                                                           Tag="{Binding}">
-                                                    <TextBlock.Foreground>
-                                                        <Binding Path="Type" Converter="{StaticResource TermColor}"/>
-                                                    </TextBlock.Foreground>
-                                                </TextBlock>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
+                                    <StackPanel>
+                                        <ItemsControl x:Name="TerminalOutput"
+                                                      ItemsSource="{Binding ActiveSession.Lines}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type models:TerminalLine}">
+                                                    <TextBlock x:Name="TermLine"
+                                                               Text="{Binding Text}"
+                                                               FontFamily="Consolas"
+                                                               FontSize="11"
+                                                               TextWrapping="Wrap"
+                                                               Tag="{Binding}">
+                                                        <TextBlock.Foreground>
+                                                            <Binding Path="Type" Converter="{StaticResource TermColor}"/>
+                                                        </TextBlock.Foreground>
+                                                    </TextBlock>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <!-- Shell-ready cursor — appears after last output line when
+                                             the interactive shell is active and waiting for input -->
+                                        <TextBlock Text="▌"
+                                                   FontFamily="Consolas" FontSize="12"
+                                                   Foreground="{StaticResource AccentBrush}"
+                                                   Margin="0,2,0,4"
+                                                   Visibility="{Binding ShellCursorVisible, Converter={StaticResource BoolVis}}">
+                                            <TextBlock.Triggers>
+                                                <EventTrigger RoutedEvent="Loaded">
+                                                    <BeginStoryboard>
+                                                        <Storyboard RepeatBehavior="Forever">
+                                                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                             From="1" To="0" Duration="0:0:0.5"
+                                                                             AutoReverse="True"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </EventTrigger>
+                                            </TextBlock.Triggers>
+                                        </TextBlock>
+                                    </StackPanel>
                                 </ScrollViewer>
+
                             </Grid>
                         </Grid>
                     </Border>

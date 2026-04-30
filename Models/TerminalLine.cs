@@ -1,3 +1,5 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+
 namespace DevLauncher.Models;
 
 public enum TerminalLineType
@@ -11,9 +13,9 @@ public enum TerminalLineType
     Separator
 }
 
-public class TerminalLine
+public partial class TerminalLine : ObservableObject
 {
-    public string Text { get; set; } = string.Empty;
-    public TerminalLineType Type { get; set; } = TerminalLineType.Output;
-    public DateTime Timestamp { get; set; } = DateTime.Now;
+    [ObservableProperty] private string _text = string.Empty;
+    public TerminalLineType Type      { get; set; } = TerminalLineType.Output;
+    public DateTime         Timestamp { get; set; } = DateTime.Now;
 }

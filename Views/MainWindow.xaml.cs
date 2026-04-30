@@ -8,8 +8,9 @@ using WinForms      = System.Windows.Forms;
 using WpfKey        = System.Windows.Input.Key;
 using WpfKeyboard   = System.Windows.Input.Keyboard;
 using WpfModifiers  = System.Windows.Input.ModifierKeys;
-using KeyEventArgs        = System.Windows.Input.KeyEventArgs;
-using MouseButtonEventArgs = System.Windows.Input.MouseButtonEventArgs;
+using KeyEventArgs             = System.Windows.Input.KeyEventArgs;
+using MouseButtonEventArgs     = System.Windows.Input.MouseButtonEventArgs;
+using TextCompositionEventArgs = System.Windows.Input.TextCompositionEventArgs;
 
 namespace DevLauncher.Views;
 
@@ -109,13 +110,47 @@ public partial class MainWindow : Window
     private int _currentMatch = -1;
     private string _lastQuery = string.Empty;
 
-    // Ctrl+F on the ScrollViewer opens the search bar
+    // Clicking the terminal gives it keyboard focus
+    private void TerminalScroll_MouseDown(object sender, MouseButtonEventArgs e)
+        => TerminalScroll.Focus();
+
+    // Printable characters typed while the terminal has focus → append to input
+    private void TerminalScroll_TextInput(object sender, TextCompositionEventArgs e)
+    {
+        if (_vm.ActiveSession?.ShellWriter == null) return;
+        _vm.ActiveSessionInput += e.Text;
+        e.Handled = true;
+    }
+
+    // Ctrl+F = search; Enter / Backspace / Escape = shell input control
     private void TerminalScroll_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == WpfKey.F && WpfKeyboard.Modifiers == WpfModifiers.Control)
         {
             OpenSearch();
             e.Handled = true;
+            return;
+        }
+
+        if (_vm.ActiveSession?.ShellWriter == null) return;
+
+        switch (e.Key)
+        {
+            case WpfKey.Return:
+                _vm.SendSessionCommandCommand.Execute(null);
+                e.Handled = true;
+                break;
+
+            case WpfKey.Back:
+                if (_vm.ActiveSessionInput.Length > 0)
+                    _vm.ActiveSessionInput = _vm.ActiveSessionInput[..^1];
+                e.Handled = true;
+                break;
+
+            case WpfKey.Escape:
+                _vm.ActiveSessionInput = string.Empty;
+                e.Handled = true;
+                break;
         }
     }
 
@@ -341,6 +376,7 @@ public partial class MainWindow : Window
         {
             _subscribedSession.Lines.CollectionChanged += OnLinesChanged;
             ScrollTerminalToBottom();
+            TerminalScroll.Focus();
         }
     }
 
