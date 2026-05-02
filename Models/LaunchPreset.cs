@@ -19,4 +19,12 @@ public class LaunchPreset
     public DateTime LastEditedAt      { get; set; } = DateTime.UtcNow;
 
     public ObservableCollection<LaunchCommand> Commands { get; set; } = new();
+
+    // null-safe: old JSON without this field deserialises to null → fall back to empty schedule
+    private PresetSchedule _schedule = new();
+    public  PresetSchedule  Schedule
+    {
+        get => _schedule;
+        set => _schedule = value ?? new();
+    }
 }

@@ -547,10 +547,38 @@
                                                             </Button>
                                                         </Grid>
 
+                                                        <!-- Schedule badge — visible when a schedule is set -->
+                                                        <Border CornerRadius="6" Padding="7,3"
+                                                                Margin="0,0,0,8"
+                                                                HorizontalAlignment="Left"
+                                                                Background="#0D10B981"
+                                                                BorderBrush="#3310B981"
+                                                                BorderThickness="1">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Schedule.IsScheduled}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="⏰ "
+                                                                           FontFamily="Consolas" FontSize="9"/>
+                                                                <TextBlock Text="{Binding Schedule.Summary}"
+                                                                           FontFamily="Consolas" FontSize="9"
+                                                                           Foreground="{StaticResource Accent3Brush}"/>
+                                                            </StackPanel>
+                                                        </Border>
+
                                                         <!-- Buttons -->
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="6"/>
+                                                                <ColumnDefinition Width="36"/>
                                                                 <ColumnDefinition Width="6"/>
                                                                 <ColumnDefinition Width="36"/>
                                                                 <ColumnDefinition Width="6"/>
@@ -572,6 +600,12 @@
                                                                     Style="{StaticResource OutlineButton}"
                                                                     ToolTip="Export .bat" Padding="0,7"
                                                                     Command="{Binding DataContext.ExportScriptCommand,
+                                                                              RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"/>
+                                                            <Button Grid.Column="6" Content="⏰"
+                                                                    Style="{StaticResource OutlineButton}"
+                                                                    ToolTip="Schedule preset" Padding="0,7"
+                                                                    Command="{Binding DataContext.OpenScheduleDialogCommand,
                                                                               RelativeSource={RelativeSource AncestorType=Window}}"
                                                                     CommandParameter="{Binding}"/>
                                                         </Grid>

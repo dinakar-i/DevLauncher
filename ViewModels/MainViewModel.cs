@@ -23,6 +23,7 @@ public partial class MainViewModel : ObservableObject
     private readonly PresetStorageService     _storage         = new();
     private readonly FirebaseService          _firebase        = new();
     private readonly WorkspaceStorageService  _wsStorage       = new();
+    private readonly SchedulerService         _scheduler       = new();
 
     // ── Collections ───────────────────────────────────────────────
     public ObservableCollection<TerminalSession>   Sessions        { get; } = new();
@@ -75,6 +76,9 @@ public partial class MainViewModel : ObservableObject
         LoadWorkspaceSettings();
         StartClock();
         StartMonitorTimer();
+        _scheduler.Start(() => AllPresets, p => LaunchPreset(p));
+        // Delay startup presets so the UI is fully loaded first
+        Task.Delay(2000).ContinueWith(_ => Dispatch(_scheduler.RunStartupPresets));
 
         _firebase.PresetsUpdated          += OnFirebasePresetsUpdated;
         _firebase.ConnectionStatusChanged += s => WorkspaceStatus = s;
@@ -549,6 +553,24 @@ public partial class MainViewModel : ObservableObject
         AllPresets.Remove(preset);
         _storage.SaveCustomPresets(AllPresets);
         ApplyFilter();
+    }
+
+    [RelayCommand]
+    private void OpenScheduleDialog(LaunchPreset? preset)
+    {
+        if (preset == null) return;
+        var dialog = new DevLauncher.Views.ScheduleDialog(preset)
+        {
+            Owner = WpfApplication.Current.MainWindow
+        };
+        if (dialog.ShowDialog() == true)
+        {
+            _storage.SaveCustomPresets(AllPresets);
+            ApplyFilter(); // re-render cards so the schedule badge updates
+            StatusText = preset.Schedule.Type == Models.ScheduleType.None
+                ? $"Schedule cleared: {preset.Name}"
+                : $"Scheduled: {preset.Name} — {preset.Schedule.Summary}";
+        }
     }
 
     [RelayCommand]
