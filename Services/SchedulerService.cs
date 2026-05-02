@@ -5,44 +5,55 @@ namespace DevLauncher.Services;
 
 public class SchedulerService
 {
-    private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(30) };
+    private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(15) };
 
     private Func<IEnumerable<LaunchPreset>>? _getPresets;
     private Action<LaunchPreset>?            _launch;
+    private Action?                          _savePresets;
 
-    public void Start(Func<IEnumerable<LaunchPreset>> getPresets, Action<LaunchPreset> launch)
+    public void Start(
+        Func<IEnumerable<LaunchPreset>> getPresets,
+        Action<LaunchPreset>            launch,
+        Action?                         savePresets = null)
     {
-        _getPresets = getPresets;
-        _launch     = launch;
+        _getPresets  = getPresets;
+        _launch      = launch;
+        _savePresets = savePresets;
         _timer.Tick += (_, _) => Check(DateTime.Now);
         _timer.Start();
     }
 
-    // Call once after startup delay to fire any OnStartup presets
     public void RunStartupPresets()
     {
         if (_getPresets == null || _launch == null) return;
+        bool any = false;
         foreach (var p in _getPresets().ToList())
         {
-            if (p.Schedule.IsEnabled && p.Schedule.Type == ScheduleType.OnStartup)
-            {
-                p.Schedule.LastRunAt = DateTime.Now;
-                _launch(p);
-            }
+            var startup = p.Schedules.Where(s => s.IsEnabled && s.Type == ScheduleType.OnStartup).ToList();
+            if (startup.Count == 0) continue;
+            foreach (var s in startup) s.LastRunAt = DateTime.Now;
+            _launch(p);
+            any = true;
         }
+        if (any) _savePresets?.Invoke();
     }
 
     private void Check(DateTime now)
     {
         if (_getPresets == null || _launch == null) return;
+        bool any = false;
         foreach (var p in _getPresets().ToList())
         {
-            if (ShouldRun(p.Schedule, now))
+            foreach (var s in p.Schedules)
             {
-                p.Schedule.LastRunAt = DateTime.Now;
+                if (!ShouldRun(s, now)) continue;
+                s.LastRunAt = DateTime.Now;
                 _launch(p);
+                any = true;
+                break; // one fire per preset per tick even if multiple schedules match
             }
         }
+        if (any) _savePresets?.Invoke();
     }
 
     public static bool ShouldRun(PresetSchedule s, DateTime now)
@@ -58,7 +69,7 @@ public class SchedulerService
             ScheduleType.Once =>
                 s.RunOnceAt.HasValue
                 && now >= s.RunOnceAt.Value
-                && now < s.RunOnceAt.Value.AddMinutes(1)
+                && now < s.RunOnceAt.Value.AddMinutes(2)
                 && (s.LastRunAt == null || s.LastRunAt < s.RunOnceAt),
 
             ScheduleType.Daily =>
@@ -74,7 +85,6 @@ public class SchedulerService
         };
     }
 
-    // Returns a human-readable description of when this schedule fires next
     public static string NextRunText(PresetSchedule s)
     {
         if (!s.IsEnabled || s.Type == ScheduleType.None) return "—";
@@ -88,32 +98,28 @@ public class SchedulerService
             case ScheduleType.Once:
                 if (!s.RunOnceAt.HasValue) return "Date not set";
                 return s.RunOnceAt.Value > now
-                    ? s.RunOnceAt.Value.ToString("ddd MMM dd  HH:mm")
+                    ? s.RunOnceAt.Value.ToString("ddd MMM dd  h:mm tt")
                     : "Already passed";
 
             case ScheduleType.Daily:
                 var todayRun = now.Date + time;
                 var next     = todayRun > now ? todayRun : todayRun.AddDays(1);
-                return next.ToString("ddd MMM dd  HH:mm");
+                return next.ToString("ddd MMM dd  h:mm tt");
 
             case ScheduleType.Weekdays:
                 if (s.Days.Count == 0) return "No days selected";
+                var todaySlot = now.Date + time;
+                if (s.Days.Contains(now.DayOfWeek) && todaySlot > now)
+                    return todaySlot.ToString("ddd MMM dd  h:mm tt");
                 for (int i = 1; i <= 7; i++)
                 {
-                    var candidate = now.Date.AddDays(i);
-                    if (!s.Days.Contains(candidate.DayOfWeek)) continue;
-                    var run = candidate + time;
-                    if (i == 0 && run <= now) continue;
-                    return run.ToString("ddd MMM dd  HH:mm");
+                    var c = now.Date.AddDays(i);
+                    if (s.Days.Contains(c.DayOfWeek))
+                        return (c + time).ToString("ddd MMM dd  h:mm tt");
                 }
-                // same-day check
-                var todayWeekday = now.Date + time;
-                if (s.Days.Contains(now.DayOfWeek) && todayWeekday > now)
-                    return todayWeekday.ToString("ddd MMM dd  HH:mm");
                 return "—";
 
-            default:
-                return "—";
+            default: return "—";
         }
     }
 }

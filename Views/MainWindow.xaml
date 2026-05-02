@@ -547,31 +547,58 @@
                                                             </Button>
                                                         </Grid>
 
-                                                        <!-- Schedule badge — visible when a schedule is set -->
-                                                        <Border CornerRadius="6" Padding="7,3"
-                                                                Margin="0,0,0,8"
-                                                                HorizontalAlignment="Left"
-                                                                Background="#0D10B981"
-                                                                BorderBrush="#3310B981"
-                                                                BorderThickness="1">
-                                                            <Border.Style>
-                                                                <Style TargetType="Border">
-                                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding Schedule.IsScheduled}" Value="True">
-                                                                            <Setter Property="Visibility" Value="Visible"/>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </Border.Style>
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <TextBlock Text="⏰ "
-                                                                           FontFamily="Consolas" FontSize="9"/>
-                                                                <TextBlock Text="{Binding Schedule.Summary}"
-                                                                           FontFamily="Consolas" FontSize="9"
-                                                                           Foreground="{StaticResource Accent3Brush}"/>
-                                                            </StackPanel>
-                                                        </Border>
+                                                        <!-- Schedule badges — one per schedule entry -->
+                                                        <ItemsControl ItemsSource="{Binding Schedules}" Margin="0,0,0,6">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate DataType="{x:Type models:PresetSchedule}">
+                                                                    <Border CornerRadius="6" Padding="7,3" Margin="0,0,0,3"
+                                                                            HorizontalAlignment="Left" BorderThickness="1">
+                                                                        <Border.Style>
+                                                                            <Style TargetType="Border">
+                                                                                <Setter Property="Visibility"   Value="Collapsed"/>
+                                                                                <Setter Property="Background"   Value="#0D10B981"/>
+                                                                                <Setter Property="BorderBrush"  Value="#3310B981"/>
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsScheduled}" Value="True">
+                                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                                    </DataTrigger>
+                                                                                    <DataTrigger Binding="{Binding IsEnabled}" Value="False">
+                                                                                        <Setter Property="Background"  Value="#0D4A5568"/>
+                                                                                        <Setter Property="BorderBrush" Value="#334A5568"/>
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Border.Style>
+                                                                        <StackPanel Orientation="Horizontal">
+                                                                            <TextBlock Text="⏰  " FontFamily="Consolas" FontSize="9">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Setter Property="Foreground" Value="{StaticResource Accent3Brush}"/>
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsEnabled}" Value="False">
+                                                                                                <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
+                                                                            <TextBlock Text="{Binding Summary}" FontFamily="Consolas" FontSize="9">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Setter Property="Foreground" Value="{StaticResource Accent3Brush}"/>
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsEnabled}" Value="False">
+                                                                                                <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
+                                                                        </StackPanel>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
 
                                                         <!-- Buttons -->
                                                         <Grid>

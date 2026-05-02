@@ -76,7 +76,10 @@ public partial class MainViewModel : ObservableObject
         LoadWorkspaceSettings();
         StartClock();
         StartMonitorTimer();
-        _scheduler.Start(() => AllPresets, p => LaunchPreset(p));
+        _scheduler.Start(
+            () => AllPresets,
+            p  => LaunchPreset(p),
+            () => _storage.SaveCustomPresets(AllPresets));
         // Delay startup presets so the UI is fully loaded first
         Task.Delay(2000).ContinueWith(_ => Dispatch(_scheduler.RunStartupPresets));
 
@@ -567,9 +570,10 @@ public partial class MainViewModel : ObservableObject
         {
             _storage.SaveCustomPresets(AllPresets);
             ApplyFilter(); // re-render cards so the schedule badge updates
-            StatusText = preset.Schedule.Type == Models.ScheduleType.None
-                ? $"Schedule cleared: {preset.Name}"
-                : $"Scheduled: {preset.Name} — {preset.Schedule.Summary}";
+            var active = preset.Schedules.Where(s => s.IsScheduled).ToList();
+            StatusText = active.Count == 0
+                ? $"Schedules cleared: {preset.Name}"
+                : $"{active.Count} schedule(s) saved — {preset.Name}";
         }
     }
 

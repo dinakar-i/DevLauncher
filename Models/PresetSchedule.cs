@@ -25,14 +25,21 @@ public class PresetSchedule
     {
         ScheduleType.OnStartup => "⚡ On startup",
         ScheduleType.Once      => RunOnceAt.HasValue
-                                    ? $"Once  {RunOnceAt.Value:MMM dd  HH:mm}"
+                                    ? $"Once  {RunOnceAt.Value:MMM dd  h:mm tt}"
                                     : "Once (time not set)",
-        ScheduleType.Daily     => $"Daily  {Hour:D2}:{Minute:D2}",
+        ScheduleType.Daily     => $"Daily  {FormatAmPm(Hour, Minute)}",
         ScheduleType.Weekdays  => Days.Count > 0
-                                    ? $"{string.Join(" ", Days.OrderBy(d => (int)d).Select(d => d.ToString()[..3]))}  {Hour:D2}:{Minute:D2}"
+                                    ? $"{string.Join(" ", Days.OrderBy(d => (int)d).Select(d => d.ToString()[..3]))}  {FormatAmPm(Hour, Minute)}"
                                     : "Weekdays (no days)",
         _                      => "No schedule",
     };
+
+    public static string FormatAmPm(int hour24, int minute)
+    {
+        var period = hour24 < 12 ? "AM" : "PM";
+        var h      = hour24 % 12 == 0 ? 12 : hour24 % 12;
+        return $"{h}:{minute:D2} {period}";
+    }
 
     public PresetSchedule Clone() => new()
     {
